@@ -25,7 +25,7 @@ concurrency:
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 300
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -42,9 +42,9 @@ jobs:
       - name: Collect download counts
         run: |
           if [ -n "${{ github.event.inputs.start }}" ]; then
-            python scripts/collect.py --start "${{ github.event.inputs.start }}"
+            python scripts/collect.py --verbose --start "${{ github.event.inputs.start }}"
           else
-            python scripts/collect.py
+            python scripts/collect.py --verbose
           fi
 
       - name: Commit updated data
