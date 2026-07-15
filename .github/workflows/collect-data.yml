@@ -6,10 +6,35 @@ on:
     - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
-      start:
-        description: "Optional start date (YYYY-MM-DD) to limit the window"
+      config:
+        description: "Path to the JSON config file (blank = config.json)"
         required: false
         default: ""
+      start:
+        description: "Only collect counts on or after this date (YYYY-MM-DD)"
+        required: false
+        default: ""
+      end:
+        description: "Only collect counts on or before this date (YYYY-MM-DD)"
+        required: false
+        default: ""
+      output_dir:
+        description: "Directory to write the data files (blank = data/)"
+        required: false
+        default: ""
+      workers:
+        description: "Number of parallel fetch workers (blank = script default of 8)"
+        required: false
+        default: ""
+      max_rps:
+        description: "Aggregate cap on API requests per second (blank = script default of 20)"
+        required: false
+        default: ""
+      verbose:
+        description: "Emit detailed per-binary and per-request progress"
+        required: false
+        type: boolean
+        default: true
 
 # Allow committing data back to the repo and deploying to GitHub Pages.
 permissions:
@@ -40,18 +65,38 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Collect download counts
+        env:
+          IN_CONFIG: ${{ github.event.inputs.config }}
+          IN_START: ${{ github.event.inputs.start }}
+          IN_END: ${{ github.event.inputs.end }}
+          IN_OUTPUT_DIR: ${{ github.event.inputs.output_dir }}
+          IN_WORKERS: ${{ github.event.inputs.workers }}
+          IN_MAX_RPS: ${{ github.event.inputs.max_rps }}
+          # Defaults to verbose for scheduled runs (input is empty when not dispatched).
+          IN_VERBOSE: ${{ github.event.inputs.verbose }}
         run: |
-          if [ -n "${{ github.event.inputs.start }}" ]; then
-            python scripts/collect.py --verbose --start "${{ github.event.inputs.start }}"
-          else
-            python scripts/collect.py --verbose
+          args=()
+          [ -n "$IN_CONFIG" ] && args+=(--config "$IN_CONFIG")
+          [ -n "$IN_START" ] && args+=(--start "$IN_START")
+          [ -n "$IN_END" ] && args+=(--end "$IN_END")
+          [ -n "$IN_OUTPUT_DIR" ] && args+=(--output-dir "$IN_OUTPUT_DIR")
+          [ -n "$IN_WORKERS" ] && args+=(--workers "$IN_WORKERS")
+          [ -n "$IN_MAX_RPS" ] && args+=(--max-rps "$IN_MAX_RPS")
+          # Verbose unless a manual dispatch explicitly set it to false.
+          if [ "$IN_VERBOSE" != "false" ]; then
+            args+=(--verbose)
           fi
+          echo "Running: python scripts/collect.py ${args[*]}"
+          python scripts/collect.py "${args[@]}"
 
       - name: Commit updated data
+        env:
+          IN_OUTPUT_DIR: ${{ github.event.inputs.output_dir }}
         run: |
+          data_dir="${IN_OUTPUT_DIR:-data}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/downloads.csv data/downloads.json data/last-run.json
+          git add "$data_dir/downloads.csv" "$data_dir/downloads.json" "$data_dir/last-run.json"
           if git diff --staged --quiet; then
             echo "No data changes to commit."
           else
@@ -73,11 +118,14 @@ jobs:
           ref: ${{ github.ref }}
 
       - name: Assemble site
+        env:
+          IN_OUTPUT_DIR: ${{ github.event.inputs.output_dir }}
         run: |
+          data_dir="${IN_OUTPUT_DIR:-data}"
           mkdir -p _site
           cp -r web/* _site/
           mkdir -p _site/data
-          cp data/downloads.json data/last-run.json _site/data/
+          cp "$data_dir/downloads.json" "$data_dir/last-run.json" _site/data/
 
       - name: Setup Pages
         uses: actions/configure-pages@v6

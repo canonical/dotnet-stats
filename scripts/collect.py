@@ -19,6 +19,7 @@ Usage:
     python scripts/collect.py [--config config.json]
                               [--start YYYY-MM-DD] [--end YYYY-MM-DD]
                               [--output-dir data/]
+                              [--workers N] [--max-rps N]
                               [--verbose]
 """
 
@@ -29,8 +30,10 @@ import csv
 import datetime as dt
 import json
 import sys
+import threading
 import time
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from launchpadlib.launchpad import Launchpad
@@ -46,11 +49,19 @@ LAUNCHPAD_INSTANCE = "production"
 ORIGIN_PPA = "backports-ppa"
 ORIGIN_ARCHIVE = "ubuntu-archive"
 
-# Courtesy delay between API calls (seconds) to be gentle on the anonymous API.
+# Courtesy delay between API calls (seconds) during single-threaded pagination.
 API_SLEEP = 0.1
 
 # Page size used when paging through published binaries.
 PAGE_SIZE = 300
+
+# Parallelism defaults (overridable via CLI flags).
+DEFAULT_WORKERS = 8
+DEFAULT_MAX_RPS = 20
+
+# Per-task retry policy for transient download-count failures.
+FETCH_RETRIES = 3
+RETRY_BACKOFF = 0.5  # seconds; multiplied by 2**attempt
 
 # When running incrementally we re-fetch a few days before the last known date
 # to catch any late corrections/missed runs.
@@ -143,6 +154,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="directory to write downloads.csv/json (default: data/)",
     )
     parser.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_WORKERS,
+        help=f"number of parallel fetch workers (default: {DEFAULT_WORKERS}; "
+        "use 1 for fully sequential)",
+    )
+    parser.add_argument(
+        "--max-rps",
+        type=float,
+        default=DEFAULT_MAX_RPS,
+        help=f"aggregate cap on API requests per second across all workers "
+        f"(default: {DEFAULT_MAX_RPS})",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
@@ -184,26 +209,109 @@ def binary_key(record: dict) -> tuple:
 
 
 # --------------------------------------------------------------------------- #
+# Concurrency infrastructure
+# --------------------------------------------------------------------------- #
+
+
+class RateLimiter:
+    """Thread-safe token bucket enforcing an aggregate max requests/second.
+
+    ``acquire`` blocks until a token is available, so all worker threads
+    combined never exceed ``rate`` requests per second regardless of how many
+    threads are running.
+    """
+
+    def __init__(self, rate: float) -> None:
+        self.rate = max(rate, 0.0)
+        # Cap burst size to ~1 second's worth of requests, and start with a
+        # small bucket so we don't fire a large burst at startup.
+        self.capacity = max(rate, 1.0)
+        self.tokens = min(1.0, self.capacity)
+        self.timestamp = time.monotonic()
+        self.lock = threading.Lock()
+
+    def acquire(self) -> None:
+        if self.rate <= 0:
+            return
+        with self.lock:
+            while True:
+                now = time.monotonic()
+                elapsed = now - self.timestamp
+                self.timestamp = now
+                self.tokens = min(self.capacity, self.tokens + elapsed * self.rate)
+                if self.tokens >= 1.0:
+                    self.tokens -= 1.0
+                    return
+                # Wait just long enough for the next token to accrue.
+                sleep_for = (1.0 - self.tokens) / self.rate
+                time.sleep(sleep_for)
+
+
+# Per-thread Launchpad instance (Option B: no shared HTTP state across threads).
+_thread_local = threading.local()
+
+
+def thread_launchpad() -> Launchpad:
+    """Return this thread's own anonymous Launchpad instance, creating it once."""
+    lp = getattr(_thread_local, "launchpad", None)
+    if lp is None:
+        lp = Launchpad.login_anonymously(
+            APPLICATION_NAME, LAUNCHPAD_INSTANCE, CACHE_DIR, version="devel"
+        )
+        _thread_local.launchpad = lp
+    return lp
+
+
+# --------------------------------------------------------------------------- #
 # Download-count fetching
 # --------------------------------------------------------------------------- #
 
 
 def fetch_download_counts(
-    binary,
+    self_link: str,
     base_fields: dict,
     start: dt.date | None,
     end: dt.date | None,
+    limiter: RateLimiter,
 ) -> list[dict]:
     """Return per-day download-count records for a single binary publication.
 
-    ``getDownloadCounts`` returns entries newest-first, so once we walk past the
-    ``start`` date we can stop early.
+    Runs on a worker thread: re-resolves the publication on this thread's own
+    Launchpad instance (Option B isolation), then fetches its download counts
+    for the requested window. ``getDownloadCounts`` returns entries newest-first,
+    so the client-side ``start`` check acts as a safety net alongside the
+    server-side ``start_date``/``end_date`` parameters.
     """
     records: list[dict] = []
-    try:
-        counts = binary.getDownloadCounts()
-    except Exception as exc:  # pragma: no cover - network/permission issues
-        log(f"  ! failed to get download counts: {exc}")
+    kwargs: dict = {}
+    if start is not None:
+        # launchpadlib JSON-encodes operation parameters, so pass ISO strings
+        # rather than date objects (which are not JSON serializable).
+        kwargs["start_date"] = start.isoformat()
+    if end is not None:
+        kwargs["end_date"] = end.isoformat()
+
+    last_exc: Exception | None = None
+    counts = None
+    for attempt in range(FETCH_RETRIES):
+        try:
+            limiter.acquire()
+            lp = thread_launchpad()
+            binary = lp.load(self_link)
+            limiter.acquire()
+            counts = binary.getDownloadCounts(**kwargs)
+            last_exc = None
+            break
+        except Exception as exc:  # pragma: no cover - network issues
+            last_exc = exc
+            if attempt + 1 < FETCH_RETRIES:
+                time.sleep(RETRY_BACKOFF * (2 ** attempt))
+    if counts is None:
+        log(
+            f"  ! failed to get download counts for "
+            f"{base_fields['package_name']} {base_fields['package_version']} "
+            f"[{base_fields['series']}/{base_fields['architecture']}]: {last_exc}"
+        )
         return records
 
     for download in counts:
@@ -226,8 +334,20 @@ def fetch_download_counts(
         f"[{base_fields['series']}/{base_fields['architecture']}]: "
         f"{len(records)} day(s)"
     )
-    time.sleep(API_SLEEP)
     return records
+
+
+def should_skip_removed(binary, start: dt.date | None) -> bool:
+    """True when a publication was removed before the window and so cannot have
+    accrued any new download counts within it. Never skips on a full backfill."""
+    if start is None:
+        return False
+    removed = getattr(binary, "date_removed", None)
+    if removed is None:
+        return False
+    if hasattr(removed, "date"):
+        removed = removed.date()
+    return removed < start
 
 
 def binary_base_fields(binary, origin: str) -> dict:
@@ -247,6 +367,79 @@ def binary_base_fields(binary, origin: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
+# Parallel fetch driver
+# --------------------------------------------------------------------------- #
+
+
+class FetchPool:
+    """Streams download-count fetch jobs to a thread pool as they are discovered.
+
+    Jobs are submitted via :meth:`submit` during enumeration so that fetching
+    overlaps with enumeration and progress/verbose output appears immediately
+    (rather than only after the whole archive has been scanned). Call
+    :meth:`results` once all jobs have been submitted to drain and aggregate
+    every result. Output is order-independent (the final merge sorts).
+
+    With ``workers <= 1`` the work runs inline on submit, preserving the fully
+    sequential behaviour.
+    """
+
+    def __init__(
+        self,
+        start: dt.date | None,
+        end: dt.date | None,
+        limiter: RateLimiter,
+        workers: int,
+    ) -> None:
+        self.start = start
+        self.end = end
+        self.limiter = limiter
+        self.workers = workers
+        self._records: list[dict] = []
+        self._futures: list = []
+        self._submitted = 0
+        self._done = 0
+        self._executor = (
+            ThreadPoolExecutor(max_workers=workers) if workers > 1 else None
+        )
+
+    def submit(self, self_link: str, base_fields: dict) -> None:
+        self._submitted += 1
+        if self._executor is None:
+            self._records.extend(
+                fetch_download_counts(
+                    self_link, base_fields, self.start, self.end, self.limiter
+                )
+            )
+            self._progress()
+        else:
+            self._futures.append(
+                self._executor.submit(
+                    fetch_download_counts,
+                    self_link,
+                    base_fields,
+                    self.start,
+                    self.end,
+                    self.limiter,
+                )
+            )
+
+    def _progress(self) -> None:
+        self._done += 1
+        if self._done % 25 == 0:
+            log(f"  fetched {self._done}/{self._submitted} binaries ...")
+
+    def results(self) -> list[dict]:
+        """Drain all in-flight futures and return the aggregated records."""
+        if self._executor is not None:
+            for future in as_completed(self._futures):
+                self._records.extend(future.result())
+                self._progress()
+            self._executor.shutdown(wait=True)
+        return self._records
+
+
+# --------------------------------------------------------------------------- #
 # Phase 1 - backports PPA
 # --------------------------------------------------------------------------- #
 
@@ -256,14 +449,20 @@ def collect_ppa(
     source_packages: set[str],
     start: dt.date | None,
     end: dt.date | None,
+    limiter: RateLimiter,
+    workers: int,
 ) -> tuple[list[dict], dict[str, set[str]]]:
     """Collect PPA download counts and discover binary names per source package."""
     log("Phase 1: collecting from backports PPA ...")
-    records: list[dict] = []
     binary_names: dict[str, set[str]] = defaultdict(set)
+    pool = FetchPool(start, end, limiter, workers)
 
     matched = 0
+    skipped = 0
+    submitted = 0
     total_seen = 0
+    # Enumeration stays single-threaded (the lazy collection is not thread-safe),
+    # but fetch jobs are streamed to the pool as they are discovered.
     for binary in ppa.getPublishedBinaries():
         total_seen += 1
         if total_seen % 500 == 0:
@@ -272,12 +471,16 @@ def collect_ppa(
         if source not in source_packages:
             continue
         matched += 1
+        # Discovery must happen before any skip so Phase 2 queries all names.
         binary_names[source].add(binary.binary_package_name)
 
+        if should_skip_removed(binary, start):
+            skipped += 1
+            continue
+
         base = binary_base_fields(binary, ORIGIN_PPA)
-        records.extend(fetch_download_counts(binary, base, start, end))
-        if matched % 25 == 0:
-            log(f"  processed {matched} matching PPA binaries ...")
+        pool.submit(binary.self_link, base)
+        submitted += 1
 
     vlog(
         "  discovered binary names: "
@@ -286,9 +489,12 @@ def collect_ppa(
         )
     )
     log(
-        f"  done: {matched} matching binaries "
-        f"(of {total_seen} scanned), {len(records)} download-count rows"
+        f"  matched {matched} binaries (of {total_seen} scanned); "
+        f"{skipped} skipped (removed before window); "
+        f"fetching {submitted} with {workers} worker(s)"
     )
+    records = pool.results()
+    log(f"  done: {len(records)} download-count rows")
     return records, binary_names
 
 
@@ -303,10 +509,11 @@ def collect_archive(
     binary_names: dict[str, set[str]],
     start: dt.date | None,
     end: dt.date | None,
+    limiter: RateLimiter,
+    workers: int,
 ) -> list[dict]:
     """Collect primary-archive download counts using discovered binary names."""
     log("Phase 2: collecting from primary Ubuntu archive ...")
-    records: list[dict] = []
 
     # The set of binary names to query (deduplicated across source packages).
     names_to_query: set[str] = set()
@@ -315,9 +522,12 @@ def collect_archive(
 
     if not names_to_query:
         log("  no binary names discovered; skipping primary archive")
-        return records
+        return []
 
     log(f"  querying {len(names_to_query)} binary name(s) in primary archive")
+    pool = FetchPool(start, end, limiter, workers)
+    submitted = 0
+    skipped = 0
     for name in sorted(names_to_query):
         vlog(f"    querying binary_name={name!r} ...")
         try:
@@ -333,11 +543,21 @@ def collect_archive(
             if binary.source_package_name not in source_packages:
                 continue
             matched += 1
+            if should_skip_removed(binary, start):
+                skipped += 1
+                continue
             base = binary_base_fields(binary, ORIGIN_ARCHIVE)
-            records.extend(fetch_download_counts(binary, base, start, end))
-        log(f"    {name}: {matched} matching binaries")
+            pool.submit(binary.self_link, base)
+            submitted += 1
+        vlog(f"    {name}: {matched} matching binaries")
         time.sleep(API_SLEEP)
 
+    log(
+        f"  collected {submitted} publications to fetch; "
+        f"{skipped} skipped (removed before window); "
+        f"fetching with {workers} worker(s)"
+    )
+    records = pool.results()
     log(f"  done: {len(records)} download-count rows")
     return records
 
@@ -472,6 +692,10 @@ def main(argv: list[str]) -> int:
     json_path = output_dir / "downloads.json"
     meta_path = output_dir / "last-run.json"
 
+    workers = max(1, args.workers)
+    limiter = RateLimiter(args.max_rps)
+    vlog(f"Parallelism: {workers} worker(s), max {args.max_rps} req/s")
+
     existing = load_existing(csv_path)
     vlog(f"Loaded {len(existing)} existing rows from {csv_path}")
     vlog(f"Tracking source packages: {sorted(source_packages)}")
@@ -494,7 +718,9 @@ def main(argv: list[str]) -> int:
     ppa = launchpad.people[config["team"]].getPPAByName(name=config["ppa"])
     primary = launchpad.distributions["ubuntu"].main_archive
 
-    ppa_records, binary_names = collect_ppa(ppa, source_packages, start, args.end)
+    ppa_records, binary_names = collect_ppa(
+        ppa, source_packages, start, args.end, limiter, workers
+    )
 
     # Fold in any configured binary-name overrides (for source packages that
     # may not be present in the PPA at all).
@@ -502,7 +728,7 @@ def main(argv: list[str]) -> int:
         binary_names.setdefault(source, set()).update(names)
 
     archive_records = collect_archive(
-        primary, source_packages, binary_names, start, args.end
+        primary, source_packages, binary_names, start, args.end, limiter, workers
     )
 
     fresh = ppa_records + archive_records

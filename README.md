@@ -77,6 +77,23 @@ keeping the maximum count per key.
 The collector is **incremental**: on subsequent runs it only re-fetches counts
 from a few days before the last recorded date (adjustable via `--start`).
 
+### Performance
+
+Download counts are fetched one publication at a time, so the collector applies
+several optimizations:
+
+- **Windowed queries** — when a start/end date is in effect, it is passed to
+  Launchpad's `getDownloadCounts(start_date=…, end_date=…)` so each response
+  carries only the relevant days (both bounds inclusive).
+- **Skipping dead publications** — a publication that was *removed* from its
+  archive before the window can no longer accrue downloads, so its fetch is
+  skipped entirely (never applied during a full backfill).
+- **Parallel fetching** — fetches run across a thread pool (`--workers`, default
+  8). Each worker uses its own Launchpad session for thread safety, and a shared
+  rate limiter (`--max-rps`, default 20) caps the aggregate request rate so the
+  anonymous API is not overwhelmed. Output is identical regardless of worker
+  count (the merge is order-independent).
+
 ## Running locally
 
 ```bash
@@ -97,6 +114,8 @@ Options:
 | `--start`  | Only collect counts on or after this date (`YYYY-MM-DD`). |
 | `--end`    | Only collect counts on or before this date (`YYYY-MM-DD`). |
 | `--output-dir` | Where to write the data files (default `data/`). |
+| `--workers` | Number of parallel fetch workers (default `8`; use `1` for sequential). |
+| `--max-rps` | Aggregate cap on API requests per second across all workers (default `20`). |
 | `-v`, `--verbose` | Emit detailed per-binary and per-request progress. |
 
 ### Previewing the dashboard
