@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>.NET on Ubuntu — download statistics</title>
+    <link
+      rel="stylesheet"
+      href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.55.0.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+  </head>
+  <body>
+    <div class="l-application" role="presentation">
+      <!-- Mobile navigation bar -->
+      <header class="l-navigation-bar">
+        <div class="p-panel is-dark">
+          <div class="p-panel__header">
+            <span class="p-panel__title">.NET on Ubuntu</span>
+            <div class="p-panel__controls">
+              <button class="p-button--base is-dark js-menu-toggle" aria-label="Toggle navigation">
+                <i class="p-icon--menu is-light"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Side navigation -->
+      <nav class="l-navigation" aria-label="Dashboard views">
+        <div class="l-navigation__drawer">
+          <div class="p-panel is-dark">
+            <div class="p-panel__header is-sticky">
+              <a href="." class="p-panel__logo">
+                <img
+                  class="p-panel__logo-icon"
+                  src="images/dotnet-logo.png"
+                  alt=""
+                />
+                <span class="p-panel__logo-name is-fading-when-collapsed">.NET on Ubuntu</span>
+              </a>
+              <div class="p-panel__controls u-hide--large">
+                <button class="p-button--base is-dark u-no-margin js-menu-toggle" aria-label="Close navigation">
+                  <i class="p-icon--close is-light"></i>
+                </button>
+              </div>
+            </div>
+            <div class="p-panel__content">
+              <div class="p-side-navigation--icons" id="drawer">
+                <ul class="p-side-navigation__list" id="nav-list">
+                  <!-- populated by app.js -->
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Main content -->
+      <main class="l-main">
+        <div class="p-panel">
+          <div class="p-panel__header is-sticky">
+            <h1 class="p-panel__title" id="view-title">Overview</h1>
+            <div class="p-panel__controls">
+              <span class="p-status-label--information" id="freshness">Loading…</span>
+            </div>
+          </div>
+
+          <div class="p-panel__content">
+            <!-- Global filter bar -->
+            <div class="u-fixed-width" id="filter-bar" hidden>
+              <div class="p-segmented-control">
+                <div class="p-segmented-control__list" role="tablist" aria-label="Origin filter" id="origin-filter">
+                  <button class="p-segmented-control__button is-selected" role="tab" aria-selected="true" data-origin="all">All origins</button>
+                  <button class="p-segmented-control__button" role="tab" aria-selected="false" data-origin="backports-ppa">Backports PPA</button>
+                  <button class="p-segmented-control__button" role="tab" aria-selected="false" data-origin="ubuntu-archive">Ubuntu archive</button>
+                </div>
+              </div>
+
+              <div class="row u-no-padding--left u-no-padding--right p-filters">
+                <div class="col-3 col-medium-2">
+                  <label for="pocket-filter" class="u-off-screen">Pocket</label>
+                  <select id="pocket-filter">
+                    <option value="all">All pockets</option>
+                  </select>
+                </div>
+                <div class="col-3 col-medium-2">
+                  <label for="version-filter" class="u-off-screen">Version</label>
+                  <select id="version-filter">
+                    <option value="all">All versions</option>
+                  </select>
+                </div>
+                <div class="col-3 col-medium-2">
+                  <label for="type-filter" class="u-off-screen">Package type</label>
+                  <select id="type-filter">
+                    <option value="all">All package types</option>
+                  </select>
+                </div>
+                <div class="col-3 col-medium-2 u-align--right">
+                  <label class="p-switch">
+                    <input type="checkbox" class="p-switch__input" id="debug-toggle" />
+                    <span class="p-switch__slider"></span>
+                    <span class="p-switch__label">Include debug pkgs</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Loading / error notifications -->
+            <div id="notice"></div>
+
+            <!-- View container -->
+            <div id="views"></div>
+          </div>
+        </div>
+
+        <aside class="l-status">
+          <div class="u-fixed-width">
+            <p class="u-no-margin--bottom u-text--muted" id="status-line">
+              Data source: Launchpad · dotnet/backports PPA + Ubuntu archive
+            </p>
+          </div>
+        </aside>
+      </main>
+    </div>
+
+    <script src="stats.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
