@@ -38,6 +38,30 @@
     { id: "forecast", label: "Forecast", icon: "share" },
   ];
 
+  // Friendly labels for known origins; unknown origins fall back to the raw value.
+  var ORIGIN_LABELS = {
+    "backports-ppa": "Backports PPA",
+    "ubuntu-archive": "Ubuntu archive",
+  };
+
+  function originLabel(origin) {
+    return ORIGIN_LABELS[origin] || origin;
+  }
+
+  // Distinct origins present in the loaded data, in a stable order.
+  function detectedOrigins() {
+    var seen = {};
+    var order = [];
+    state.binaries.forEach(function (b) {
+      if (!seen[b.origin]) {
+        seen[b.origin] = true;
+        order.push(b.origin);
+      }
+    });
+    order.sort();
+    return order;
+  }
+
   var state = {
     binaries: [],
     lastUpdated: null,
@@ -159,17 +183,24 @@
     var byOrigin = groupBy(binaries, function (b) {
       return b.origin;
     });
-    var ppaTotal = byOrigin.has("backports-ppa") ? totalCount(byOrigin.get("backports-ppa")) : 0;
-    var archiveTotal = byOrigin.has("ubuntu-archive") ? totalCount(byOrigin.get("ubuntu-archive")) : 0;
     var versions = new Set(binaries.map(function (b) { return Stats.majorVersion(b.source_package); }));
 
+    var cards = [statCard("Total downloads", total, "across all selected packages")];
+    // One card per origin present in the (filtered) data.
+    Array.from(byOrigin.keys()).sort().forEach(function (origin) {
+      var originTotal = totalCount(byOrigin.get(origin));
+      cards.push(
+        statCard(
+          originLabel(origin),
+          originTotal,
+          total ? ((originTotal / total) * 100).toFixed(1) + "% of total" : ""
+        )
+      );
+    });
+    cards.push(statCard("Tracked binaries", binaries.length, versions.size + " .NET versions"));
+
     var grid = el("div", "row");
-    [
-      statCard("Total downloads", total, "across all selected packages"),
-      statCard("Backports PPA", ppaTotal, total ? ((ppaTotal / total) * 100).toFixed(1) + "% of total" : ""),
-      statCard("Ubuntu archive", archiveTotal, total ? ((archiveTotal / total) * 100).toFixed(1) + "% of total" : ""),
-      statCard("Tracked binaries", binaries.length, versions.size + " .NET versions"),
-    ].forEach(function (card) {
+    cards.forEach(function (card) {
       var col = el("div", "col-3 col-medium-3 col-small-2");
       col.appendChild(card);
       grid.appendChild(col);
@@ -536,6 +567,34 @@
     fillSelect("#type-filter", types);
   }
 
+  // Build the origin segmented control from the origins present in the data.
+  function buildOriginFilter() {
+    var container = $("#origin-filter");
+    container.innerHTML = "";
+    var origins = ["all"].concat(detectedOrigins());
+
+    origins.forEach(function (origin) {
+      var selected = origin === state.filters.origin;
+      var btn = el("button", "p-segmented-control__button");
+      btn.setAttribute("role", "tab");
+      btn.setAttribute("aria-selected", selected ? "true" : "false");
+      if (selected) btn.classList.add("is-selected");
+      btn.dataset.origin = origin;
+      btn.textContent = origin === "all" ? "All origins" : originLabel(origin);
+      btn.addEventListener("click", function () {
+        container.querySelectorAll("button").forEach(function (b) {
+          b.classList.remove("is-selected");
+          b.setAttribute("aria-selected", "false");
+        });
+        btn.classList.add("is-selected");
+        btn.setAttribute("aria-selected", "true");
+        state.filters.origin = origin;
+        render();
+      });
+      container.appendChild(btn);
+    });
+  }
+
   function fillSelect(sel, values, numeric) {
     var node = $(sel);
     var arr = Array.from(values).sort(function (a, b) {
@@ -550,19 +609,6 @@
   }
 
   function wireControls() {
-    // Origin segmented control.
-    document.querySelectorAll("#origin-filter button").forEach(function (btn) {
-      btn.addEventListener("click", function () {
-        document.querySelectorAll("#origin-filter button").forEach(function (b) {
-          b.classList.remove("is-selected");
-          b.setAttribute("aria-selected", "false");
-        });
-        btn.classList.add("is-selected");
-        btn.setAttribute("aria-selected", "true");
-        state.filters.origin = btn.dataset.origin;
-        render();
-      });
-    });
     $("#pocket-filter").addEventListener("change", function (e) {
       state.filters.pocket = e.target.value;
       render();
@@ -627,10 +673,13 @@
         $("#filter-bar").hidden = false;
         $("#freshness").textContent =
           "Updated " + (state.lastUpdated ? state.lastUpdated.replace("T", " ").replace("Z", " UTC") : "unknown");
+        var originLabels = detectedOrigins().map(originLabel);
         $("#status-line").textContent =
-          "Data source: Launchpad · dotnet/backports PPA + Ubuntu archive · " +
-          state.binaries.length + " binaries tracked";
+          "Data source: Launchpad · " +
+          (originLabels.length ? originLabels.join(" + ") : "no data") +
+          " · " + state.binaries.length + " binaries tracked";
         populateFilters();
+        buildOriginFilter();
         // Deep-link support.
         var hash = location.hash.replace("#", "");
         if (VIEWS.some(function (v) { return v.id === hash; })) state.view = hash;

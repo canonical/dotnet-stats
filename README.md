@@ -5,13 +5,15 @@ Download statistics for .NET packages on Ubuntu, gathered from
 with [Vanilla Framework](https://vanillaframework.io) and
 [Plotly.js](https://plotly.com/javascript/).
 
-Data is collected from **two origins** and aggregated:
+Data is collected from the **dotnet backports PPA** (`dotnet/backports`).
 
-- **Backports PPA** — `dotnet/backports`
-- **Ubuntu archive** — the primary Ubuntu archive (all pockets)
+> **Note:** The primary Ubuntu archive is *not* collected. Launchpad only tracks
+> per-package download counts for PPAs; the primary archive is distributed via
+> the mirror/CDN network, so `getDownloadCounts` returns nothing for it. The
+> dashboard keeps an "origin" dimension (currently just Backports PPA) so another
+> source can be added later without a data migration.
 
-You can view combined totals or filter by origin, pocket, .NET version and
-package type.
+You can filter by origin, pocket, .NET version and package type.
 
 ## Repository layout
 
@@ -40,37 +42,25 @@ Edit `config.json` to change what is tracked:
 {
   "team": "dotnet",
   "ppa": "backports",
-  "source_packages": ["dotnet6", "dotnet7", "dotnet8", "dotnet9", "dotnet10"],
-  "binary_names": {}
+  "source_packages": ["dotnet6", "dotnet7", "dotnet8", "dotnet9", "dotnet10"]
 }
 ```
 
-- `source_packages` — the source packages to track. Binary package names are
-  discovered automatically from the PPA and reused to query the Ubuntu archive.
-- `binary_names` — optional override, mapping a source package to an explicit
-  list of binary names. Only needed for a source package that is **not** present
-  in the PPA (so its binaries cannot be auto-discovered), e.g.:
-
-  ```json
-  "binary_names": {
-    "dotnet8": ["dotnet8", "dotnet-sdk-8.0", "dotnet-runtime-8.0"]
-  }
-  ```
+- `source_packages` — the source packages to track. Their binary packages are
+  discovered from the PPA automatically.
 
 ## How collection works
 
 Launchpad silently ignores the `source_package_name` filter on
-`getPublishedBinaries`, and the primary Ubuntu archive is far too large to page
-through in full. The collector therefore works in two phases:
+`getPublishedBinaries`, so the collector enumerates every published binary in
+the PPA and keeps those whose `source_package_name` is in the config, recording
+each publication's download counts.
 
-1. **Backports PPA** — fetch all published binaries (small archive), keep those
-   whose `source_package_name` is in the config, record their download counts,
-   and collect the set of binary package names produced by each source package.
-2. **Ubuntu archive** — for each discovered binary name, query the primary
-   archive with `binary_name=<name>&exact_match=true`, then keep results whose
-   `source_package_name` is in the config, and record their download counts.
+Only the PPA is collected. The primary Ubuntu archive is not queried because
+Launchpad exposes no per-package download counts for it (`getDownloadCounts`
+returns nothing for primary-archive publications).
 
-Results from both phases are merged with the existing data, deduplicated by
+Fetched counts are merged with the existing data, deduplicated by
 `(origin, source_package, name, version, series, arch, pocket, status, date)`,
 keeping the maximum count per key.
 

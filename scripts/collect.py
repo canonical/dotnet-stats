@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """Collect .NET package download counts from Launchpad.
 
-Gathers download-count statistics for a configured set of source packages,
-across two origins:
+Gathers download-count statistics for a configured set of source packages from
+the dotnet team's backports PPA (origin "backports-ppa").
 
-  * "backports-ppa"  - the dotnet team's backports PPA
-  * "ubuntu-archive" - the primary Ubuntu archive
+Only the PPA is queried. The primary Ubuntu archive is intentionally not
+collected: Launchpad exposes no per-package download counts for it
+(``getDownloadCounts`` returns nothing for primary-archive publications, since
+the archive is distributed via the mirror/CDN network rather than Launchpad).
 
 Because the Launchpad API silently ignores the ``source_package_name`` filter
-on ``getPublishedBinaries``, the binary package names produced by each source
-package are discovered from the (small) PPA first, then reused to query the
-(very large) primary archive via the ``binary_name`` filter.
+on ``getPublishedBinaries``, published binaries are enumerated from the PPA and
+filtered by source package client-side.
 
 The script is incremental: it merges freshly fetched counts into the existing
 data files, deduplicating by a composite key and keeping the maximum count.
@@ -47,7 +48,6 @@ APPLICATION_NAME = "dotnet-stats-collector"
 LAUNCHPAD_INSTANCE = "production"
 
 ORIGIN_PPA = "backports-ppa"
-ORIGIN_ARCHIVE = "ubuntu-archive"
 
 # Courtesy delay between API calls (seconds) during single-threaded pagination.
 API_SLEEP = 0.1
@@ -109,7 +109,6 @@ def load_config(path: Path) -> dict:
         if required not in config:
             raise ValueError(f"config is missing required key: {required!r}")
 
-    config.setdefault("binary_names", {})
     return config
 
 
@@ -440,7 +439,7 @@ class FetchPool:
 
 
 # --------------------------------------------------------------------------- #
-# Phase 1 - backports PPA
+# Collection - backports PPA
 # --------------------------------------------------------------------------- #
 
 
@@ -451,9 +450,9 @@ def collect_ppa(
     end: dt.date | None,
     limiter: RateLimiter,
     workers: int,
-) -> tuple[list[dict], dict[str, set[str]]]:
-    """Collect PPA download counts and discover binary names per source package."""
-    log("Phase 1: collecting from backports PPA ...")
+) -> list[dict]:
+    """Collect download counts for tracked source packages from the PPA."""
+    log("Collecting from backports PPA ...")
     binary_names: dict[str, set[str]] = defaultdict(set)
     pool = FetchPool(start, end, limiter, workers)
 
@@ -471,7 +470,6 @@ def collect_ppa(
         if source not in source_packages:
             continue
         matched += 1
-        # Discovery must happen before any skip so Phase 2 queries all names.
         binary_names[source].add(binary.binary_package_name)
 
         if should_skip_removed(binary, start):
@@ -492,70 +490,6 @@ def collect_ppa(
         f"  matched {matched} binaries (of {total_seen} scanned); "
         f"{skipped} skipped (removed before window); "
         f"fetching {submitted} with {workers} worker(s)"
-    )
-    records = pool.results()
-    log(f"  done: {len(records)} download-count rows")
-    return records, binary_names
-
-
-# --------------------------------------------------------------------------- #
-# Phase 2 - primary Ubuntu archive
-# --------------------------------------------------------------------------- #
-
-
-def collect_archive(
-    primary,
-    source_packages: set[str],
-    binary_names: dict[str, set[str]],
-    start: dt.date | None,
-    end: dt.date | None,
-    limiter: RateLimiter,
-    workers: int,
-) -> list[dict]:
-    """Collect primary-archive download counts using discovered binary names."""
-    log("Phase 2: collecting from primary Ubuntu archive ...")
-
-    # The set of binary names to query (deduplicated across source packages).
-    names_to_query: set[str] = set()
-    for names in binary_names.values():
-        names_to_query.update(names)
-
-    if not names_to_query:
-        log("  no binary names discovered; skipping primary archive")
-        return []
-
-    log(f"  querying {len(names_to_query)} binary name(s) in primary archive")
-    pool = FetchPool(start, end, limiter, workers)
-    submitted = 0
-    skipped = 0
-    for name in sorted(names_to_query):
-        vlog(f"    querying binary_name={name!r} ...")
-        try:
-            published = primary.getPublishedBinaries(
-                binary_name=name, exact_match=True
-            )
-        except Exception as exc:  # pragma: no cover
-            log(f"  ! failed to query binary_name={name!r}: {exc}")
-            continue
-
-        matched = 0
-        for binary in published:
-            if binary.source_package_name not in source_packages:
-                continue
-            matched += 1
-            if should_skip_removed(binary, start):
-                skipped += 1
-                continue
-            base = binary_base_fields(binary, ORIGIN_ARCHIVE)
-            pool.submit(binary.self_link, base)
-            submitted += 1
-        vlog(f"    {name}: {matched} matching binaries")
-        time.sleep(API_SLEEP)
-
-    log(
-        f"  collected {submitted} publications to fetch; "
-        f"{skipped} skipped (removed before window); "
-        f"fetching with {workers} worker(s)"
     )
     records = pool.results()
     log(f"  done: {len(records)} download-count rows")
@@ -716,25 +650,10 @@ def main(argv: list[str]) -> int:
     )
 
     ppa = launchpad.people[config["team"]].getPPAByName(name=config["ppa"])
-    primary = launchpad.distributions["ubuntu"].main_archive
 
-    ppa_records, binary_names = collect_ppa(
-        ppa, source_packages, start, args.end, limiter, workers
-    )
-
-    # Fold in any configured binary-name overrides (for source packages that
-    # may not be present in the PPA at all).
-    for source, names in config["binary_names"].items():
-        binary_names.setdefault(source, set()).update(names)
-
-    archive_records = collect_archive(
-        primary, source_packages, binary_names, start, args.end, limiter, workers
-    )
-
-    fresh = ppa_records + archive_records
+    fresh = collect_ppa(ppa, source_packages, start, args.end, limiter, workers)
     vlog(
-        f"Fetched {len(ppa_records)} PPA rows + {len(archive_records)} archive rows "
-        f"= {len(fresh)} fresh rows; merging with {len(existing)} existing rows"
+        f"Fetched {len(fresh)} fresh rows; merging with {len(existing)} existing rows"
     )
     merged = merge_records(existing, fresh)
 

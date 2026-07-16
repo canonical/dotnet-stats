@@ -72,9 +72,7 @@
             <div class="u-fixed-width" id="filter-bar" hidden>
               <div class="p-segmented-control">
                 <div class="p-segmented-control__list" role="tablist" aria-label="Origin filter" id="origin-filter">
-                  <button class="p-segmented-control__button is-selected" role="tab" aria-selected="true" data-origin="all">All origins</button>
-                  <button class="p-segmented-control__button" role="tab" aria-selected="false" data-origin="backports-ppa">Backports PPA</button>
-                  <button class="p-segmented-control__button" role="tab" aria-selected="false" data-origin="ubuntu-archive">Ubuntu archive</button>
+                  <!-- populated by app.js from the origins present in the data -->
                 </div>
               </div>
 
@@ -118,7 +116,7 @@
         <aside class="l-status">
           <div class="u-fixed-width">
             <p class="u-no-margin--bottom u-text--muted" id="status-line">
-              Data source: Launchpad · dotnet/backports PPA + Ubuntu archive
+              Data source: Launchpad · dotnet/backports PPA
             </p>
           </div>
         </aside>

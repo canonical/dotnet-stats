@@ -69,9 +69,10 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
 
 - `getPublishedBinaries` **silently ignores** `source_package_name` on both the
   PPA and the primary archive. Filter by source package **client-side**.
-- On the primary archive, filter by `binary_name` with `exact_match=True`. Binary
-  names are discovered from the (small) PPA first, then reused to query the
-  (huge) primary archive.
+- **The primary Ubuntu archive exposes no download counts.** `getDownloadCounts`
+  returns nothing for primary-archive publications (the archive ships via the
+  mirror/CDN network, not Launchpad). Only PPAs have download telemetry, so the
+  collector queries the PPA only — do not re-add a primary-archive phase.
 - `getDownloadCounts` accepts `start_date`/`end_date` (both **inclusive**) and
   returns entries newest-first. Pass them as **ISO strings** (`date.isoformat()`),
   not `date` objects — launchpadlib JSON-encodes params and `date` is not
@@ -82,7 +83,10 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
 
 ## Collector design notes
 
-- Two phases: PPA (discovers binary names) then primary archive.
+- Single source: enumerates the PPA and filters by source package client-side.
+- The data schema keeps an `origin` column (currently always `backports-ppa`) so
+  another source could be added later; the dashboard builds its origin filter
+  from the origins actually present in the data.
 - Incremental: auto-derives `--start` from existing data unless overridden.
 - Parallel fetch via `FetchPool` (jobs streamed to a thread pool as discovered),
   bounded by a shared `RateLimiter` (`--max-rps`, default 20; `--workers`

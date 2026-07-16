@@ -7,6 +7,5 @@
     "dotnet8",
     "dotnet9",
     "dotnet10"
-  ],
-  "binary_names": {}
+  ]
 }
