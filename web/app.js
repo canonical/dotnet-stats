@@ -512,6 +512,7 @@
   function render() {
     var viewsRoot = $("#views");
     viewsRoot.innerHTML = "";
+    viewsRoot._grid = null; // forget the stale breakdowns grid reference
     var meta = VIEWS.find(function (v) { return v.id === state.view; });
     $("#view-title").textContent = meta ? meta.label : "";
 
