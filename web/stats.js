@@ -212,6 +212,61 @@
     return { dates: outDates, values, lower, upper };
   }
 
+  /**
+   * Build a calendar-heatmap matrix (GitHub-style) from a daily series.
+   * Rows are days of the week (Mon..Sun), columns are weeks. Days with no
+   * data in the input are represented as null so Plotly renders them as gaps.
+   * Returns { z, x, y, customdata, max, total }.
+   */
+  function calendarHeatmap(dates, counts) {
+    const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    if (!dates.length) return { z: [], x: [], y: DAY_LABELS, customdata: [], max: 0, total: 0 };
+
+    const byDate = new Map();
+    for (let i = 0; i < dates.length; i++) byDate.set(dates[i], counts[i]);
+
+    const first = new Date(dates[0] + "T00:00:00Z");
+    const last = new Date(dates[dates.length - 1] + "T00:00:00Z");
+
+    // Monday = 0 ... Sunday = 6
+    const dow = (d) => (d.getUTCDay() + 6) % 7;
+
+    // Align to the Monday on/before the first date and Sunday on/after the last.
+    const start = new Date(first);
+    start.setUTCDate(start.getUTCDate() - dow(first));
+    const end = new Date(last);
+    end.setUTCDate(end.getUTCDate() + (6 - dow(last)));
+
+    const weekStarts = [];
+    const z = [[], [], [], [], [], [], []];
+    const customdata = [[], [], [], [], [], [], []];
+    let max = 0;
+    let total = 0;
+
+    let cursor = new Date(start);
+    while (cursor <= end) {
+      if (dow(cursor) === 0) {
+        weekStarts.push(cursor.toISOString().slice(0, 10));
+        for (let r = 0; r < 7; r++) {
+          z[r].push(null);
+          customdata[r].push(null);
+        }
+      }
+      const dateStr = cursor.toISOString().slice(0, 10);
+      const col = weekStarts.length - 1;
+      if (byDate.has(dateStr)) {
+        const count = byDate.get(dateStr);
+        z[dow(cursor)][col] = count;
+        customdata[dow(cursor)][col] = dateStr;
+        if (count > max) max = count;
+        total += count;
+      }
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+
+    return { z, x: weekStarts, y: DAY_LABELS, customdata, max, total };
+  }
+
   // ----------------------------------------------------------------------- //
   // Package taxonomy helpers
   // ----------------------------------------------------------------------- //
@@ -250,6 +305,7 @@
     anomalies: anomalies,
     halfLife: halfLife,
     forecastCumulative: forecastCumulative,
+    calendarHeatmap: calendarHeatmap,
     packageType: packageType,
     majorVersion: majorVersion,
   };

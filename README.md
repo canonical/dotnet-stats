@@ -133,6 +133,7 @@ Enable GitHub Pages for the repository with **Source: GitHub Actions**.
 
 - **Overview** — totals, per-origin split, top packages.
 - **Time series** — daily downloads with 7/30-day moving averages and cumulative.
+- **Calendar** — GitHub-style heatmap of daily download intensity with a year/month selector, surfacing weekday/seasonal patterns and the busiest day of the week.
 - **Trends** — week-over-week / month-over-month growth and regression slope.
 - **Version share** — stacked share of dotnet6/7/8/9/10 over time.
 - **Breakdowns** — by origin, series, architecture, package type and pocket.
