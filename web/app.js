@@ -30,6 +30,7 @@
   var VIEWS = [
     { id: "overview", label: "Overview", icon: "dashboard" },
     { id: "timeseries", label: "Time series", icon: "timed-out" },
+    { id: "calendar", label: "Calendar", icon: "calendar" },
     { id: "trends", label: "Trends", icon: "change-version" },
     { id: "market", label: "Version share", icon: "priority-high" },
     { id: "breakdowns", label: "Breakdowns", icon: "units" },
@@ -66,6 +67,7 @@
     binaries: [],
     lastUpdated: null,
     filters: { origin: "all", pocket: "all", version: "all", type: "all", debug: false },
+    calendarFilter: { year: "all", month: "all" },
     view: "overview",
   };
 
@@ -89,6 +91,58 @@
     if (n == null) return "n/a";
     var s = n >= 0 ? "+" : "";
     return s + n.toFixed(1) + "%";
+  }
+
+  // Wrap a stat card in a responsive grid column and append it to `grid`.
+  function appendCard(grid, card) {
+    var col = el("div", "col-3 col-medium-3 col-small-2");
+    col.appendChild(card);
+    grid.appendChild(col);
+  }
+
+  // Name of the weekday with the highest aggregate download total.
+  function busiestWeekday(dates, counts) {
+    var DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+    var totals = [0, 0, 0, 0, 0, 0, 0];
+    for (var i = 0; i < dates.length; i++) {
+      var d = new Date(dates[i] + "T00:00:00Z");
+      totals[(d.getUTCDay() + 6) % 7] += counts[i];
+    }
+    var maxIdx = 0;
+    for (var j = 1; j < 7; j++) if (totals[j] > totals[maxIdx]) maxIdx = j;
+    return DAY_NAMES[maxIdx];
+  }
+
+  var MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  // Distinct years present in a sorted date array (YYYY-MM-DD strings).
+  function availableYears(dates) {
+    var years = new Set();
+    for (var i = 0; i < dates.length; i++) years.add(dates[i].slice(0, 4));
+    return Array.from(years).sort();
+  }
+
+  // Distinct months (MM) present, optionally restricted to a given year.
+  function availableMonths(dates, year) {
+    var months = new Set();
+    for (var i = 0; i < dates.length; i++) {
+      if (year !== "all" && dates[i].slice(0, 4) !== year) continue;
+      months.add(dates[i].slice(5, 7));
+    }
+    return Array.from(months).sort();
+  }
+
+  // Filter a daily series to the selected year and/or month.
+  function filterByYearMonth(dates, counts, year, month) {
+    if (year === "all" && month === "all") return { dates: dates, counts: counts };
+    var fd = [], fc = [];
+    for (var i = 0; i < dates.length; i++) {
+      if (year !== "all" && dates[i].slice(0, 4) !== year) continue;
+      if (month !== "all" && dates[i].slice(5, 7) !== month) continue;
+      fd.push(dates[i]);
+      fc.push(counts[i]);
+    }
+    return { dates: fd, counts: fc };
   }
 
   // --------------------------------------------------------------------- //
@@ -115,13 +169,14 @@
   function statCard(title, value, sub) {
     var card = el("div", "p-card");
     card.appendChild(el("h3", "p-heading--5 u-no-margin--bottom u-text--muted", title));
-    card.appendChild(el("p", "p-heading--2 u-no-margin", fmt(value)));
+    var display = typeof value === "number" ? fmt(value) : value;
+    card.appendChild(el("p", "p-heading--2 u-no-margin", display));
     if (sub) card.appendChild(el("p", "u-text--muted u-no-margin", sub));
     return card;
   }
 
   function chartContainer(id) {
-    var wrap = el("div", "p-card u-no-padding");
+    var wrap = el("div", "p-card u-no-padding chart-card");
     var inner = el("div", "p-card__inner");
     var plot = el("div", "chart");
     plot.id = id;
@@ -199,12 +254,8 @@
     });
     cards.push(statCard("Tracked binaries", binaries.length, versions.size + " .NET versions"));
 
-    var grid = el("div", "row");
-    cards.forEach(function (card) {
-      var col = el("div", "col-3 col-medium-3 col-small-2");
-      col.appendChild(card);
-      grid.appendChild(col);
-    });
+    var grid = el("div", "row stat-cards");
+    cards.forEach(function (card) { appendCard(grid, card); });
     root.appendChild(grid);
 
     // Top packages table.
@@ -216,10 +267,10 @@
     rows.sort(function (a, b) { return b.total - a.total; });
 
     var section = el("div", "u-fixed-width");
-    section.appendChild(el("h2", "p-heading--4", "Top packages by downloads"));
+    section.appendChild(el("h2", "p-heading--4", "Top packages by lifetime downloads"));
     var table = el("table", "p-table--mobile-card");
     table.innerHTML =
-      "<thead><tr><th>Package</th><th>Type</th><th class='u-align--right'>Downloads</th></tr></thead>";
+      "<thead><tr><th>Package</th><th>Type</th><th class='u-align--right'>Lifetime downloads</th></tr></thead>";
     var tbody = el("tbody");
     rows.slice(0, 15).forEach(function (r) {
       var tr = el("tr");
@@ -263,6 +314,116 @@
       [{ x: agg.dates, y: Stats.cumulative(agg.counts), name: "Cumulative",
          type: "scatter", mode: "lines", fill: "tozeroy", line: { color: UBUNTU.blue } }],
       baseLayout({ title: "Cumulative downloads", yaxis: { title: "Total downloads" } }),
+      PLOTLY_CONFIG
+    );
+  };
+
+  Views.calendar = function (root, binaries) {
+    var agg = Stats.aggregateDaily(countsOf(binaries));
+    if (!agg.dates.length) return emptyState(root);
+
+    // Determine available years/months from the data and reset stale selections.
+    var years = availableYears(agg.dates);
+    if (state.calendarFilter.year !== "all" && years.indexOf(state.calendarFilter.year) === -1) {
+      state.calendarFilter.year = "all";
+      state.calendarFilter.month = "all";
+    }
+    var months = availableMonths(agg.dates, state.calendarFilter.year);
+    if (state.calendarFilter.month !== "all" && months.indexOf(state.calendarFilter.month) === -1) {
+      state.calendarFilter.month = "all";
+    }
+
+    // Year/month selector.
+    var selector = el("div", "row p-filters");
+    var yearCol = el("div", "col-3 col-medium-2");
+    yearCol.appendChild(el("label", "u-text--muted", "Year"));
+    var yearSel = el("select");
+    yearSel.id = "cal-year";
+    var yearOpt = el("option"); yearOpt.value = "all"; yearOpt.textContent = "All years"; yearSel.appendChild(yearOpt);
+    years.forEach(function (y) {
+      var o = el("option"); o.value = y; o.textContent = y; yearSel.appendChild(o);
+    });
+    yearSel.value = state.calendarFilter.year;
+    yearSel.addEventListener("change", function (e) {
+      state.calendarFilter.year = e.target.value;
+      state.calendarFilter.month = "all";
+      render();
+    });
+    yearCol.appendChild(yearSel);
+    selector.appendChild(yearCol);
+
+    var monthCol = el("div", "col-3 col-medium-2");
+    monthCol.appendChild(el("label", "u-text--muted", "Month"));
+    var monthSel = el("select");
+    monthSel.id = "cal-month";
+    var monthOpt = el("option"); monthOpt.value = "all"; monthOpt.textContent = "All months"; monthSel.appendChild(monthOpt);
+    months.forEach(function (m) {
+      var o = el("option"); o.value = m; o.textContent = MONTH_LABELS[parseInt(m, 10) - 1]; monthSel.appendChild(o);
+    });
+    monthSel.value = state.calendarFilter.month;
+    monthSel.addEventListener("change", function (e) {
+      state.calendarFilter.month = e.target.value;
+      render();
+    });
+    monthCol.appendChild(monthSel);
+    selector.appendChild(monthCol);
+    root.appendChild(selector);
+
+    // Filter the daily series by the selected year/month.
+    var filtered = filterByYearMonth(agg.dates, agg.counts, state.calendarFilter.year, state.calendarFilter.month);
+    if (!filtered.dates.length) {
+      emptyState(root);
+      return;
+    }
+
+    var hm = Stats.calendarHeatmap(filtered.dates, filtered.counts);
+    var peakDay = Stats.topPeaks(filtered.dates, filtered.counts, 1)[0];
+    var avg = Stats.mean(filtered.counts);
+
+    var grid = el("div", "row stat-cards");
+    appendCard(grid, statCard("Days with data", filtered.dates.length, fmt(hm.total) + " total downloads"));
+    appendCard(grid, statCard("Peak day", fmt(peakDay.count), peakDay.date + " \u00b7 downloads"));
+    appendCard(grid, statCard("Avg / day", fmt(Math.round(avg)), "downloads/day in selection"));
+    appendCard(grid, statCard("Busiest weekday", busiestWeekday(filtered.dates, filtered.counts), "by total downloads"));
+    root.appendChild(grid);
+
+    var container = chartContainer("chart-cal");
+    root.appendChild(container);
+    Plotly.newPlot(
+      "chart-cal",
+      [{
+        z: hm.z,
+        x: hm.x,
+        y: hm.y,
+        customdata: hm.customdata,
+        type: "heatmap",
+        colorscale: [
+          [0, "#f2f2f2"], [0.15, "#fde6dc"], [0.35, "#fbb297"],
+          [0.6, "#f0784a"], [0.85, "#e95420"], [1, "#a32810"],
+        ],
+        showscale: true,
+        hoverongaps: false,
+        hovertemplate: "%{customdata}<br>%{z} downloads<extra></extra>",
+        colorbar: { title: "Downloads/day", thickness: 12, len: 0.7 },
+      }],
+      baseLayout({
+        title: "Download calendar (daily intensity)",
+        margin: { l: 50, r: 20, t: 40, b: 60 },
+        xaxis: {
+          type: "date",
+          side: "bottom",
+          tickformat: "%b %Y",
+          tickangle: -45,
+          nticks: 12,
+          showgrid: false,
+        },
+        yaxis: {
+          autorange: "reversed",
+          dtick: 1,
+          showgrid: false,
+        },
+        hovermode: "closest",
+      }),
       PLOTLY_CONFIG
     );
   };
@@ -370,9 +531,10 @@
     if (!labels.length) return;
     var col = el("div", "col-6 col-medium-3");
     var container = chartContainer(id);
+    container.classList.add("chart-card--grid-item");
     col.appendChild(container);
     if (!root._grid) {
-      root._grid = el("div", "row");
+      root._grid = el("div", "row breakdowns-grid");
       root.appendChild(root._grid);
     }
     root._grid.appendChild(col);
@@ -609,6 +771,19 @@
     });
   }
 
+  function resetFilters() {
+    state.filters = { origin: "all", pocket: "all", version: "all", type: "all", debug: false };
+    state.calendarFilter = { year: "all", month: "all" };
+
+    $("#pocket-filter").value = "all";
+    $("#version-filter").value = "all";
+    $("#type-filter").value = "all";
+    $("#debug-toggle").checked = false;
+
+    buildOriginFilter();
+    render();
+  }
+
   function wireControls() {
     $("#pocket-filter").addEventListener("change", function (e) {
       state.filters.pocket = e.target.value;
@@ -625,6 +800,10 @@
     $("#debug-toggle").addEventListener("change", function (e) {
       state.filters.debug = e.target.checked;
       render();
+    });
+    // Reset all filters to their defaults.
+    $("#reset-filters").addEventListener("click", function () {
+      resetFilters();
     });
     // Mobile menu toggles.
     document.querySelectorAll(".js-menu-toggle").forEach(function (btn) {

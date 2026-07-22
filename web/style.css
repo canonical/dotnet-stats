@@ -1,9 +1,44 @@
 /* Custom overrides layered on top of Vanilla Framework. */
 
+/* Keep the side-nav logo link white in all link states. */
+.p-panel__logo,
+.p-panel__logo:visited,
+.p-panel__logo:hover,
+.p-panel__logo:active,
+.p-panel__logo:focus {
+  color: #ffffff;
+}
+
 /* Give charts a consistent height and let Plotly fill the width. */
 .chart {
   width: 100%;
   height: 360px;
+}
+
+/* Consistent vertical rhythm for every chart card: equal spacing above and
+   below, matching the h2 section-heading margin-top rhythm. Breakdown pies
+   live inside a grid row, so they opt out via .chart-card--grid-item. */
+.chart-card {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.chart-card--grid-item {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+/* Breakdowns grid: vertical spacing between rows of pie charts (horizontal
+   spacing is handled by the column gutters, left untouched). */
+.breakdowns-grid {
+  row-gap: 1.5rem;
+}
+
+/* Stat-card grids: consistent spacing from the filter bar above and the
+   chart/heading below. */
+.stat-cards {
+  margin-top: 1.5rem;
+  margin-bottom: 1.5rem;
 }
 
 /* Cards inside the responsive grid should stretch to equal height. */
@@ -13,8 +48,7 @@
 
 /* Tidy up the global filter bar spacing. */
 .p-filters {
-  margin-top: 1rem;
-  align-items: center;
+  align-items: flex-end;
 }
 
 .p-filters select {
@@ -24,6 +58,20 @@
 /* Ensure the segmented control wraps nicely on small screens. */
 .p-segmented-control {
   margin-bottom: 0.5rem;
+}
+
+/* Top row of the filter bar */
+.filter-bar__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.filter-bar__top .p-segmented-control {
+  margin-bottom: 0;
 }
 
 /* Slightly tighten stat-card numbers. */

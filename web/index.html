@@ -70,27 +70,32 @@
           <div class="p-panel__content">
             <!-- Global filter bar -->
             <div class="u-fixed-width" id="filter-bar" hidden>
-              <div class="p-segmented-control">
-                <div class="p-segmented-control__list" role="tablist" aria-label="Origin filter" id="origin-filter">
-                  <!-- populated by app.js from the origins present in the data -->
+              <div class="filter-bar__top">
+                <div class="p-segmented-control">
+                  <div class="p-segmented-control__list" role="tablist" aria-label="Origin filter" id="origin-filter">
+                  </div>
                 </div>
+                <button class="p-button--base has-icon" id="reset-filters" title="Reset all filters">
+                  <i class="p-icon--restart"></i>
+                  <span>Reset filters</span>
+                </button>
               </div>
 
               <div class="row u-no-padding--left u-no-padding--right p-filters">
                 <div class="col-3 col-medium-2">
-                  <label for="pocket-filter" class="u-off-screen">Pocket</label>
+                  <label for="pocket-filter" class="u-text--muted">Pocket</label>
                   <select id="pocket-filter">
                     <option value="all">All pockets</option>
                   </select>
                 </div>
                 <div class="col-3 col-medium-2">
-                  <label for="version-filter" class="u-off-screen">Version</label>
+                  <label for="version-filter" class="u-text--muted">Version</label>
                   <select id="version-filter">
                     <option value="all">All versions</option>
                   </select>
                 </div>
                 <div class="col-3 col-medium-2">
-                  <label for="type-filter" class="u-off-screen">Package type</label>
+                  <label for="type-filter" class="u-text--muted">Package type</label>
                   <select id="type-filter">
                     <option value="all">All package types</option>
                   </select>
