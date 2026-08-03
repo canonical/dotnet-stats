@@ -71,6 +71,7 @@ jobs:
           echo "month=$month" >> "$GITHUB_OUTPUT"
 
       - name: Render monthly report
+        id: render
         env:
           IN_APPENDIX: ${{ github.event.inputs.appendix }}
           MONTH: ${{ steps.month.outputs.month }}
@@ -84,7 +85,14 @@ jobs:
           cp -r web/* "$site/"
           cp data/downloads.json data/last-run.json "$site/data/"
 
-          args=(--site "$site" --month "$MONTH" --out "reports/$MONTH/report.pdf")
+          # The archive layout (reports/<YYYY>/<Month>.pdf) is
+          # defined once, in report_manifest.py -- ask it rather than
+          # duplicating the scheme here.
+          pdf_path="$(python scripts/report_manifest.py \
+            --data data/downloads.json --print-pdf-path --month "$MONTH")"
+          echo "pdf_path=$pdf_path" >> "$GITHUB_OUTPUT"
+
+          args=(--site "$site" --month "$MONTH" --out "$pdf_path")
           if [ "$IN_APPENDIX" = "true" ]; then
             args+=(--appendix)
           fi
@@ -98,11 +106,12 @@ jobs:
       - name: Commit monthly report
         env:
           MONTH: ${{ steps.month.outputs.month }}
+          PDF_PATH: ${{ steps.render.outputs.pdf_path }}
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "reports/$MONTH/report.pdf" reports/index.json
+          git add "$PDF_PATH" reports/index.json
           if git diff --staged --quiet; then
             echo "No report changes to commit."
           else

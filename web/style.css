@@ -180,9 +180,29 @@
   margin-top: 1.5rem;
 }
 
+/* Vanilla caps p-heading--5 at max-width:40em (640px). Report tables are wider
+   than that, so without this override the title sits in a narrow box above a
+   wide table and looks misaligned. */
+.report-table h3 {
+  max-width: none;
+}
+
+/* Year-separated sections on the report archive page. */
+.report-archive-year {
+  margin-bottom: 2rem;
+}
+
+.report-archive-year:last-child {
+  margin-bottom: 0;
+}
+
+/* Vanilla caps every <p> at max-width:40em (640px). Report notes sit below
+   full-width tables, so a 640px wrap looks cramped and disconnected. Let them
+   span the table's full width. */
 .report-note {
   font-size: 0.8125rem;
   margin-top: 0.5rem;
+  max-width: none;
 }
 
 .report-findings {
@@ -403,6 +423,13 @@
 
   .report-table {
     margin-top: 0.9rem;
+  }
+
+  /* Left-align column headers in print. Vanilla right-aligns .u-align--right
+     headers, which in a wide print column looks detached from the left-aligned
+     data below it. */
+  .report-table th {
+    text-align: left !important;
   }
 
   .report-findings {
