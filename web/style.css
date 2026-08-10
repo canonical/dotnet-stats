@@ -39,6 +39,17 @@
 .stat-cards {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
+  /* Vanilla's .row is `grid-gap: 0 1.5rem` (column gap only, no row gap), and
+     a card's bottom margin collapses into the grid track rather than creating
+     space between rows. Until now every stat-card grid had a single row, so
+     this went unnoticed; the report's two-row KPI grid made it visible. */
+  row-gap: 1.5rem;
+}
+
+/* The row-gap above now provides the separation, so drop the per-card bottom
+   margin that Vanilla applies (it would double the gap and still collapse). */
+.stat-cards .p-card {
+  margin-bottom: 0;
 }
 
 /* Cards inside the responsive grid should stretch to equal height. */
@@ -82,4 +93,446 @@
 /* Status bar text. */
 .l-status .u-text--muted {
   font-size: 0.75rem;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Monthly executive report                                                  */
+/* ------------------------------------------------------------------------- */
+
+.report-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* Year + Month stay adjacent on the left, as in the Calendar view; the
+   actions sit on the right. */
+.report-toolbar__picker {
+  display: flex;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.report-toolbar__field {
+  min-width: 9rem;
+}
+
+.report-toolbar__field select {
+  margin-bottom: 0;
+}
+
+.report-toolbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.report-toolbar__actions .p-button,
+.report-toolbar__actions .p-button--positive {
+  margin-bottom: 0;
+}
+
+.report-cover {
+  border-top: 3px solid #e95420;
+  padding-top: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.report-cover__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  color: #e95420;
+  margin-bottom: 0.25rem;
+}
+
+/* Cover metadata: label/value pairs that stay readable in print. */
+.report-meta {
+  display: grid;
+  grid-template-columns: 12rem 1fr;
+  gap: 0.15rem 1rem;
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+}
+
+.report-meta dt {
+  color: #666666;
+}
+
+.report-meta dd {
+  margin: 0;
+}
+
+.report-page {
+  margin-bottom: 1.5rem;
+}
+
+.report-page__head {
+  margin-bottom: 0.5rem;
+}
+
+.report-table {
+  margin-top: 1.5rem;
+}
+
+.report-note {
+  font-size: 0.8125rem;
+  margin-top: 0.5rem;
+}
+
+.report-findings {
+  margin-top: 1.5rem;
+}
+
+.report-finding {
+  border-left: 3px solid #aea79f;
+  padding-left: 0.75rem;
+}
+
+.report-finding--positive {
+  border-left-color: #0e8420;
+}
+
+.report-finding--negative {
+  border-left-color: #c7162b;
+}
+
+.report-finding--caution {
+  border-left-color: #f99b11;
+}
+
+.report-delta--up {
+  color: #0e8420;
+}
+
+.report-delta--down {
+  color: #c7162b;
+}
+
+.report-status {
+  margin-bottom: 1rem;
+}
+
+/* Only ever visible in print mode, and only until every chart has drawn: see
+   the .is-report-ready guard in the print rules below. */
+.report-render-warning {
+  display: none;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Print / PDF layout                                                        */
+/*                                                                           */
+/* The archived monthly PDFs are produced by loading the report view in a     */
+/* headless browser with ?print=1 and printing it, so these rules define the  */
+/* published artifact. PRINT_CHART_WIDTH in app.js must match the printable   */
+/* width implied by the @page margins below (~190mm at 96dpi = 718px).        */
+/* ------------------------------------------------------------------------- */
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+
+  /* Keep the Ubuntu palette: without this most browsers drop backgrounds and
+     the orange accents that carry meaning in the charts. */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    background: #ffffff;
+    font-size: 10pt;
+  }
+
+  /* Chrome: strip the application shell so the report starts at the top of
+     page 1 and occupies the full printable width. */
+  .l-navigation,
+  .l-navigation-bar,
+  .l-status,
+  .p-panel__header,
+  #filter-bar,
+  #notice,
+  .u-no-print {
+    display: none !important;
+  }
+
+  .l-application,
+  .l-main,
+  .p-panel,
+  .p-panel__content,
+  #views {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+
+  /* Vanilla's fixed-width wrapper is centred with side padding that wastes
+     printable space. */
+  .u-fixed-width,
+  .row {
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  /* Vanilla's responsive grid resolves against the print viewport width and
+     collapses to two columns, so the report's grids are declared explicitly. */
+  .stat-cards {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 0.3rem !important;
+  }
+
+  .report-chart-row {
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  .stat-cards > [class*="col-"],
+  .report-chart-row > [class*="col-"] {
+    width: auto !important;
+    max-width: none !important;
+    grid-column: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Sections flow rather than each starting a new page: forcing a break per
+     section left half-empty pages. Cards, charts and tables stay intact via
+     break-inside below, and headings never end a page. */
+  .report-page {
+    break-before: auto;
+    break-inside: auto;
+  }
+
+  /* Fail loudly, never silently.
+
+     app.js adds .is-report-ready to <body> only once every Plotly chart has
+     finished drawing. If a headless browser prints before that (or a chart
+     errored), the report body is withheld and only a warning is printed, so the
+     artifact collapses to a single short page. scripts/print_report.py checks
+     the page count and file size and rejects such a render instead of
+     publishing a half-drawn report. */
+  body.is-print:not(.is-report-ready) .report-page,
+  body.is-print:not(.is-report-ready) .report-cover {
+    display: none !important;
+  }
+
+  body.is-print:not(.is-report-ready) .report-render-warning {
+    display: block !important;
+    border: 2px solid #c7162b;
+    color: #c7162b;
+    padding: 1rem;
+    font-weight: 500;
+  }
+
+  .report-page--appendix {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .report-page__head {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Never split a card, chart or table row across a page boundary. */
+  .p-card,
+  .chart-card,
+  .report-finding,
+  .report-table,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  .report-cover {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Stat cards: flat rather than raised, and tight enough for four across. */
+  .p-card {
+    border: 1px solid #d9d9d9;
+    box-shadow: none !important;
+    padding: 0.4rem !important;
+    margin-bottom: 0 !important;
+  }
+
+  .p-card .p-heading--5 {
+    font-size: 8pt;
+    margin-bottom: 0.1rem;
+  }
+
+  .p-card .p-heading--2 {
+    font-size: 13pt;
+  }
+
+  .stat-cards .p-card p:last-child {
+    font-size: 7.5pt;
+    line-height: 1.25;
+  }
+
+  .chart-card {
+    border: none;
+    margin-top: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .report-page__head h2 {
+    margin-bottom: 0.1rem;
+  }
+
+  .report-table {
+    margin-top: 0.9rem;
+  }
+
+  .report-findings {
+    margin-top: 0.9rem;
+  }
+
+  .report-finding {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+  }
+
+  .chart {
+    height: auto !important;
+    page-break-inside: avoid;
+  }
+
+  /* Vanilla's responsive tables collapse each row into a card below its
+     breakpoint, and the print viewport (~688px) is below it. On paper the real
+     table with a header row is what is wanted. */
+  .p-table--mobile-card {
+    display: table !important;
+    width: 100% !important;
+  }
+
+  .p-table--mobile-card thead {
+    display: table-header-group !important;
+  }
+
+  .p-table--mobile-card tbody {
+    display: table-row-group !important;
+  }
+
+  .p-table--mobile-card tr {
+    display: table-row !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .p-table--mobile-card th,
+  .p-table--mobile-card td {
+    display: table-cell !important;
+    width: auto !important;
+    text-align: left;
+    border-bottom: 1px solid #e5e5e5 !important;
+  }
+
+  .p-table--mobile-card th.u-align--right,
+  .p-table--mobile-card td.u-align--right {
+    text-align: right;
+  }
+
+  .p-table--mobile-card td::before {
+    display: none !important;
+    content: none !important;
+  }
+
+  /* Long package names are truncated with an ellipsis by default; on paper
+     there is no interaction to reveal the rest, so let them wrap. */
+  .p-table--mobile-card td,
+  .p-table--mobile-card th {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    max-width: none !important;
+  }
+
+  table {
+    font-size: 8.5pt;
+    width: 100%;
+  }
+
+  th,
+  td {
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+  }
+}
+/* ------------------------------------------------------------------------- */
+/* Sidebar navigation icons                                                  */
+/*                                                                           */
+/* The dashboard uses Vanilla icon classes that exist in vanilla-framework's */
+/* SCSS but are NOT compiled into the CDN build the site hotlinks, so they   */
+/* never render. Vanilla ships no Sass build here, so the exact icon SVGs    */
+/* are vendored below, extracted verbatim from                               */
+/*   vanilla-framework@4.55.1  scss/_base_icon-definitions.scss              */
+/* with Vanilla's own white dark-theme fill (hsl(0%2C0%%2C100%)), plus the   */
+/* sizing block the CDN emits for its known icons. Do not edit by hand: if   */
+/* these need to change, re-extract from the source named above.             */
+/* ------------------------------------------------------------------------- */
+
+.p-side-navigation__icon {
+  background-size: contain;
+  height: 1rem;
+  width: 1rem;
+  background-position: center;
+  background-repeat: no-repeat;
+  display: inline-block;
+  font-size: inherit;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  vertical-align: calc(0.5px + 0.3465em - 0.5rem);
+}
+
+.p-icon--switcher-dashboard {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6.25 9a.75.75 0 01.75.75v3.5a.75.75 0 01-.75.75h-3.5a.75.75 0 01-.75-.75v-3.5A.75.75 0 012.75 9h3.5zm7 0a.75.75 0 01.75.75v3.5a.75.75 0 01-.75.75h-3.5a.75.75 0 01-.75-.75v-3.5A.75.75 0 019.75 9h3.5zM5.5 10.5h-2v2h2v-2zm7 0h-2v2h2v-2zM6.25 2a.75.75 0 01.75.75v3.5a.75.75 0 01-.75.75h-3.5A.75.75 0 012 6.25v-3.5A.75.75 0 012.75 2h3.5zm7 0a.75.75 0 01.75.75v3.5a.75.75 0 01-.75.75h-3.5A.75.75 0 019 6.25v-3.5A.75.75 0 019.75 2h3.5zM5.5 3.5h-2v2h2v-2zm7 0h-2v2h2v-2z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+.p-icon--statistics {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none'%3E%3Cpath fill='hsl(0%2C0%%2C100%)' fill-rule='evenodd' d='M3.75 13.25V2h-1.5v11.25a1.5 1.5 0 0 0 1.5 1.5H14v-1.5zM14.06 3.061a.75.75 0 0 0-1.386-.573L10.73 7.19a.25.25 0 0 1-.34.13l-1.238-.597a1.75 1.75 0 0 0-2.265.685l-2.016 3.405a.75.75 0 1 0 1.29.765l2.017-3.405a.25.25 0 0 1 .324-.098l1.238.596a1.75 1.75 0 0 0 2.377-.908z' clip-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.p-icon--history {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 16 16'%3E%3Cpath stroke='hsl(0%2C0%%2C100%)' stroke-width='1.5' d='M2.482 5.066a6.25 6.25 0 1 1 .288 6.356'/%3E%3Cpath stroke='hsl(0%2C0%%2C100%)' stroke-width='1.5' d='M1.75 1.75v4h4M8 4v4l2 2'/%3E%3C/svg%3E");
+}
+
+.p-icon--change-version {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M5.948 9.012v1.5l-2.458.001A5.163 5.163 0 0012.76 10h1.596a6.665 6.665 0 01-11.839 1.785v2.158h-1.5v-4.93h4.93zM8 1.338a6.655 6.655 0 015.516 2.925V2.11h1.5v4.93h-4.93v-1.5h2.453A5.163 5.163 0 003.24 6H1.643A6.665 6.665 0 018 1.338z' fill='hsl(0%2C0%%2C100%)' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+.p-icon--plans {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M8 .496l2.053 1.863 2.77-.108.376 2.747 2.191 1.699-1.478 2.345.587 2.71-2.64.847-1.292 2.453L8 14.003l-2.567 1.049-1.292-2.453-2.64-.847.587-2.71L.61 6.697 2.8 4.998l.375-2.747 2.77.108L8 .496zM8 2.52L6.5 3.881l-2.022-.078-.274 2.005-1.601 1.24 1.08 1.713-.428 1.978 1.928.619.943 1.79L8 12.383l1.873.765.944-1.79 1.927-.619-.428-1.978 1.08-1.713-1.6-1.24-.275-2.005-2.022.078L8 2.52zm1.899 2.835l1.207.89-3.727 5.06-2.66-2.353.994-1.123 1.431 1.265 2.755-3.739z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+.p-icon--units {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9a1 1 0 011 1v4a1 1 0 01-1 1H2a1 1 0 01-1-1v-4a1 1 0 011-1h4zm8 0a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4a1 1 0 011-1h4zm-8.5 1.5h-3v3h3v-3zm8 0h-3v3h3v-3zM14 1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V2a1 1 0 011-1h4zm-.5 1.5h-3v3h3v-3z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
+}
+
+.p-icon--revisions {
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M2.583 3.566l1.019 1.131a5.5 5.5 0 109.847 4.056h1.51A7.001 7.001 0 112.584 3.567zM5.748 4.74l2.221 2.51L12 7.25v1.5H7.294l-2.67-3.018 1.124-.993zm8.014-.714c.493.712.856 1.52 1.058 2.39h-1.552a5.47 5.47 0 00-.56-1.26l1.054-1.13zM9.504 1.162a6.967 6.967 0 012.626 1.186l-1.033 1.106a5.475 5.475 0 00-1.594-.746V1.162zm-2.34-.113l.001 1.514a5.462 5.462 0 00-1.795.605L4.344 2.03a6.956 6.956 0 012.82-.98z' fill='hsl(0%2C0%%2C100%)' fill-rule='nonzero'/%3E%3C/svg%3E");
 }

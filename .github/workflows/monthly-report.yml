@@ -1,0 +1,115 @@
+name: Monthly executive report
+
+on:
+  schedule:
+    # On the 2nd of each month at 07:00 UTC, an hour after the daily collector
+    # runs. The final day's counts are not in yet on the 31st, and the
+    # collector's incremental window only reaches back three days, so the 2nd is
+    # the first point at which the month just ended is complete.
+    - cron: "0 7 2 * *"
+  workflow_dispatch:
+    inputs:
+      month:
+        description: "Month to render (YYYY-MM). Blank = the month just ended."
+        required: false
+        default: ""
+      appendix:
+        description: "Include the full-breakdown appendix"
+        required: false
+        type: boolean
+        default: false
+
+# Report scripts are standard-library only, so only contents (commit) and the
+# shared Pages deploy permissions are needed.
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Share the same concurrency group as the collection workflow so the two can
+# never race a git push or a Pages deploy.
+concurrency:
+  group: collect-and-deploy
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Guard against stale data
+        env:
+          IN_MONTH: ${{ github.event.inputs.month }}
+        run: |
+          # If the collector has not run recently, the report would be built on
+          # stale data. Fail loudly rather than publishing that. A genuine data
+          # gap (no counts) still passes -- the collector ran, there was simply
+          # nothing to record, and the report documents that.
+          python scripts/report_manifest.py --data data/downloads.json \
+            --print-target --max-age-days 3
+
+      - name: Decide report month
+        id: month
+        env:
+          IN_MONTH: ${{ github.event.inputs.month }}
+        run: |
+          set -euo pipefail
+          month="${IN_MONTH:-}"
+          if [ -z "$month" ]; then
+            month="$(python scripts/report_manifest.py \
+              --data data/downloads.json --print-target)"
+          fi
+          echo "Report month: $month"
+          echo "month=$month" >> "$GITHUB_OUTPUT"
+
+      - name: Render monthly report
+        env:
+          IN_APPENDIX: ${{ github.event.inputs.appendix }}
+          MONTH: ${{ steps.month.outputs.month }}
+        run: |
+          set -euo pipefail
+          # Stage the site the same way the deploy job does: the report view
+          # fetches data/downloads.json over HTTP, and print_report.py serves
+          # this directory to the browser.
+          site="$(mktemp -d)"
+          mkdir -p "$site/data"
+          cp -r web/* "$site/"
+          cp data/downloads.json data/last-run.json "$site/data/"
+
+          args=(--site "$site" --month "$MONTH" --out "reports/$MONTH/report.pdf")
+          if [ "$IN_APPENDIX" = "true" ]; then
+            args+=(--appendix)
+          fi
+          # Chrome is preinstalled on the GitHub-hosted Ubuntu runners.
+          python scripts/print_report.py "${args[@]}"
+
+          # Rebuild the manifest so the dashboard and reports.html list the new
+          # PDF. The manifest never recomputes report figures; it only indexes.
+          python scripts/report_manifest.py --data data/downloads.json
+
+      - name: Commit monthly report
+        env:
+          MONTH: ${{ steps.month.outputs.month }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "reports/$MONTH/report.pdf" reports/index.json
+          if git diff --staged --quiet; then
+            echo "No report changes to commit."
+          else
+            git commit -m "chore(report): executive report for $MONTH [skip ci]"
+            git push
+          fi
+
+  deploy:
+    needs: report
+    uses: ./.github/workflows/deploy-pages.yml
