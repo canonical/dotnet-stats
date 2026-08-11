@@ -728,9 +728,6 @@
     return section;
   }
 
-  /* Create a report note paragraph. In print mode, Vanilla's `p { max-width:
-   * 40em }` reasserts despite CSS overrides (Chrome's print-to-pdf can drop
-   * @media-print properties), so the max-width is set inline too. */
   function reportNote(text) {
     return el("p", "u-text--muted report-note", text);
   }
@@ -788,9 +785,6 @@
   }
 
   Views.report = function (root, binaries) {
-    // The archive sub-view is reachable from the report toolbar's "Report
-    // archive" button. It renders within the same nav item ("Monthly report"
-    // stays active) rather than navigating to a separate page.
     if (state.reportSubView === "archive") {
       renderArchiveView(root);
       return;

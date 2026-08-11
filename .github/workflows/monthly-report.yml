@@ -86,9 +86,7 @@ jobs:
           cp data/downloads.json data/last-run.json "$site/data/"
 
           # The archive layout (reports/<YYYY>/<Month>.pdf) is
-          # defined once, in report_manifest.py -- ask it rather than
-          # duplicating the scheme here.
-          pdf_path="$(python scripts/report_manifest.py \
+          # defined once, in report_manifest.py
             --data data/downloads.json --print-pdf-path --month "$MONTH")"
           echo "pdf_path=$pdf_path" >> "$GITHUB_OUTPUT"
 
