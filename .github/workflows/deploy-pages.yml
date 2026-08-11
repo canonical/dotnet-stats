@@ -24,9 +24,6 @@ jobs:
           cp -r web/* _site/
           mkdir -p _site/data
           cp data/downloads.json data/last-run.json _site/data/
-          # Archived monthly reports, so each one has a stable public URL at
-          # /reports/<YYYY-MM>/report.pdf. reports/index.json is what the
-          # dashboard's report archive and reports.html read.
           if [ -d reports ]; then
             mkdir -p _site/reports
             cp -r reports/. _site/reports/

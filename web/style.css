@@ -39,15 +39,9 @@
 .stat-cards {
   margin-top: 1.5rem;
   margin-bottom: 1.5rem;
-  /* Vanilla's .row is `grid-gap: 0 1.5rem` (column gap only, no row gap), and
-     a card's bottom margin collapses into the grid track rather than creating
-     space between rows. Until now every stat-card grid had a single row, so
-     this went unnoticed; the report's two-row KPI grid made it visible. */
   row-gap: 1.5rem;
 }
 
-/* The row-gap above now provides the separation, so drop the per-card bottom
-   margin that Vanilla applies (it would double the gap and still collapse). */
 .stat-cards .p-card {
   margin-bottom: 0;
 }
