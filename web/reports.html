@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Monthly reports — .NET on Ubuntu</title>
+    <link
+      rel="stylesheet"
+      href="https://assets.ubuntu.com/v1/vanilla_framework_version_4.55.0.min.css"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="l-application" role="presentation">
+      <main class="l-main">
+        <div class="p-panel">
+          <div class="p-panel__header">
+            <h1 class="p-panel__title">Monthly reports</h1>
+            <div class="p-panel__controls">
+              <a class="p-button" href="index.html">Back to dashboard</a>
+            </div>
+          </div>
+
+          <div class="p-panel__content">
+            <div class="u-fixed-width">
+              <p>
+                Executive download reports for .NET on Ubuntu, one per calendar
+                month. Each report is generated from
+                <code>data/downloads.json</code> and archived as a PDF; the
+                on-demand link renders the same figures live in the dashboard.
+              </p>
+              <p class="u-text--muted" id="reports-meta">Loading…</p>
+            </div>
+
+            <div class="u-fixed-width" id="reports-notice"></div>
+            <div class="u-fixed-width" id="reports-list"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      (function () {
+        "use strict";
+
+        var STATUS = {
+          ok: { label: "Complete", cls: "positive" },
+          partial: { label: "Partial month", cls: "caution" },
+          insufficient_data: { label: "Insufficient data", cls: "caution" },
+          no_data: { label: "No data", cls: "negative" },
+        };
+
+        function el(tag, cls, html) {
+          var node = document.createElement(tag);
+          if (cls) node.className = cls;
+          if (html != null) node.innerHTML = html;
+          return node;
+        }
+
+        function fmt(n) {
+          return Number(n).toLocaleString("en-US");
+        }
+
+        var base = "";
+
+        function render(manifest) {
+          var meta = document.getElementById("reports-meta");
+          meta.textContent =
+            "Manifest generated " +
+            manifest.generated_at.replace("T", " ").replace("Z", " UTC") +
+            " · data window " +
+            manifest.data_window.first +
+            " to " +
+            manifest.data_window.last +
+            " · " +
+            manifest.reports.length +
+            " months";
+
+          var rows = manifest.reports
+            .map(function (r) {
+              var status = STATUS[r.status] || { label: r.status, cls: "" };
+              var pdf = r.pdf
+                ? "<a href='" +
+                  base +
+                  r.pdf +
+                  "' download>PDF</a>" +
+                  (r.pdf_bytes
+                    ? " <span class='u-text--muted'>(" +
+                      Math.round(r.pdf_bytes / 1024) +
+                      " kB)</span>"
+                    : "")
+                : "<span class='u-text--muted'>not archived</span>";
+              return (
+                "<tr>" +
+                "<td data-heading='Month'>" + r.label + "</td>" +
+                "<td data-heading='Downloads' class='u-align--right'>" +
+                (r.total ? fmt(r.total) : "&mdash;") +
+                "</td>" +
+                "<td data-heading='Coverage' class='u-align--right'>" +
+                r.days_with_data + "/" + r.days_expected +
+                " days (" + r.coverage_pct.toFixed(0) + "%)</td>" +
+                "<td data-heading='Status'><span class='p-status-label--" +
+                status.cls + "'>" + status.label + "</span></td>" +
+                "<td data-heading='Archived'>" + pdf + "</td>" +
+                "<td data-heading='Live'><a href='" + r.html +
+                "'>Open in dashboard</a></td>" +
+                "</tr>"
+              );
+            })
+            .join("");
+
+          var table = el("table", "p-table--mobile-card");
+          table.innerHTML =
+            "<thead><tr><th>Month</th>" +
+            "<th class='u-align--right'>Downloads</th>" +
+            "<th class='u-align--right'>Coverage</th>" +
+            "<th>Status</th><th>Archived PDF</th><th>On demand</th></tr></thead>" +
+            "<tbody>" + rows + "</tbody>";
+          document.getElementById("reports-list").appendChild(table);
+        }
+
+        function notice(kind, message) {
+          document.getElementById("reports-notice").innerHTML =
+            "<div class='p-notification--" + kind + "'>" +
+            "<div class='p-notification__content'>" +
+            "<p class='p-notification__message'>" + message + "</p>" +
+            "</div></div>";
+        }
+
+        function load(url, prefix) {
+          return fetch(url, { cache: "no-cache" }).then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            base = prefix;
+            return r.json();
+          });
+        }
+
+        // The ../ fallback supports serving the repository root during local
+        // development, where the site lives in web/ and reports/ does not.
+        load("reports/index.json", "")
+          .catch(function () {
+            return load("../reports/index.json", "../");
+          })
+          .then(render)
+          .catch(function (err) {
+            document.getElementById("reports-meta").textContent = "";
+            notice(
+              "caution",
+              "No report archive found (" + err.message + "). Reports are " +
+                "generated by the monthly workflow; until one has run you can " +
+                "still build any month on demand from the " +
+                "<a href='index.html#report'>Monthly report</a> view."
+            );
+          });
+      })();
+    </script>
+  </body>
+</html>

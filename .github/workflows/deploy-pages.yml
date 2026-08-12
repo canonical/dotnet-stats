@@ -1,0 +1,42 @@
+name: Deploy Pages (reusable)
+
+# Shared deployment step so that both the daily collection workflow and the
+# monthly report workflow publish the site without duplicating the deploy job.
+on:
+  workflow_call:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Pick up whatever commit the calling workflow just pushed.
+          ref: ${{ github.ref }}
+
+      - name: Assemble site
+        run: |
+          mkdir -p _site
+          cp -r web/* _site/
+          mkdir -p _site/data
+          cp data/downloads.json data/last-run.json _site/data/
+          if [ -d reports ]; then
+            mkdir -p _site/reports
+            cp -r reports/. _site/reports/
+          fi
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
