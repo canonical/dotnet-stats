@@ -93,7 +93,7 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
 - **Data files** (`data/downloads.*`, `data/last-run.json`) are generated
   artifacts. Never hand-edit or commit locally-generated real data; CI owns them.
   Keep `data/.gitkeep`.
-- **Reports** (`reports/<YYYY-MM>/report.pdf`, `reports/index.json`) are
+- **Reports** (`reports/<YYYY>/<Month>.pdf`, `reports/index.json`) are
   generated artifacts too, on the same terms: CI owns them, do not commit a
   locally rendered PDF. Keep `reports/.gitkeep`.
 - Preserve the CSV/JSON schema in `collect.py` (`CSV_FIELDS`, `BINARY_KEY_FIELDS`

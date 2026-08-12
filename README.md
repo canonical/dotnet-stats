@@ -35,7 +35,7 @@ web/                         # static dashboard (no build step)
   report.js                  #   monthly report arithmetic (pure)
   style.css
 reports/                     # generated monthly reports (committed by CI)
-  <YYYY-MM>/report.pdf
+  <YYYY>/<Month>.pdf                 #   e.g. 2026/January.pdf
   index.json                 #   manifest read by the dashboard and reports.html
 .github/workflows/
   collect-data.yml           # daily cron: collect -> commit -> deploy
@@ -159,8 +159,9 @@ Three ways to get one:
 
 - **Dashboard** — the **Reports** button in the header, or the **Monthly report**
   view, which renders any month on demand and offers *Save as PDF*.
-- **Archive** — `reports/<YYYY-MM>/report.pdf`, published at
-  `/reports/<YYYY-MM>/report.pdf` and listed on `reports.html`.
+- **Archive** — `reports/<YYYY>/<Month>.pdf` (e.g.
+  `reports/2026/January.pdf`), published at the same path under the
+  site URL and listed on `reports.html`.
 - **Locally** — see the commands below.
 
 ### What it contains
@@ -211,7 +212,7 @@ cp data/downloads.json data/last-run.json "$site/data/"
 
 # Render it. Requires Chrome or Chromium on PATH (or $CHROME / --chrome).
 python scripts/print_report.py --site "$site" --month 2026-04 \
-  --out reports/2026-04/report.pdf
+  --out "$(python scripts/report_manifest.py --print-pdf-path --month 2026-04)"
 
 # Refresh the manifest so the dashboard lists the new PDF.
 python scripts/report_manifest.py
@@ -245,3 +246,23 @@ render and commit that month; set **appendix** to include the full breakdowns.
 `python scripts/report_manifest.py --print-months` lists every month present in
 the data. The scheduled run guards against stale data and fails (rather than
 publishing a stale report) if the collector hasn't run within `--max-age-days`.
+
+To backfill every month at once locally (e.g. after a layout change, or to
+populate the archive for the first time):
+
+```bash
+# Stage the site exactly as the deploy job does.
+site=$(mktemp -d)
+mkdir -p "$site/data"
+cp -r web/* "$site/"
+cp data/downloads.json data/last-run.json "$site/data/"
+
+# Render every month present in the data, then refresh the manifest.
+for m in $(python scripts/report_manifest.py --print-months); do
+  python scripts/print_report.py --site "$site" --month "$m" \
+    --out "$(python scripts/report_manifest.py --print-pdf-path --month "$m")"
+done
+python scripts/report_manifest.py
+```
+
+Review a couple of the PDFs, then commit `reports/` in one go.

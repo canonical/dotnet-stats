@@ -40,6 +40,22 @@ def month_label(month: str) -> str:
     return f"{MONTH_NAMES[mon - 1]} {year}"
 
 
+def report_pdf_path(reports_dir: Path, month: str) -> Path:
+    """Canonical archive path for a month's report.
+
+    reports/<YYYY>/<Month>.pdf, e.g.
+    reports/2026/January.pdf
+
+    The year is in the directory rather than the filename, since the directory
+    already disambiguates it. This is the single definition of the archive
+    layout: the manifest, the workflow (via --print-pdf-path) and any local
+    backfill must all derive the path from here so they can never disagree.
+    """
+    year = month[:4]
+    name = MONTH_NAMES[int(month[5:7]) - 1]
+    return reports_dir / year / f"{name}.pdf"
+
+
 def add_months(month: str, n: int) -> str:
     year, mon = int(month[:4]), int(month[5:7])
     total = year * 12 + (mon - 1) + n
@@ -137,7 +153,7 @@ def build_manifest(data_file: Path, reports_dir: Path, site_root: Path) -> dict:
     for month in months:
         total = monthly.get(month, 0)
         cov = coverage(daily, month, dataset_last)
-        pdf_path = reports_dir / month / "report.pdf"
+        pdf_path = report_pdf_path(reports_dir, month)
         entry = {
             "month": month,
             "label": month_label(month),
@@ -221,7 +237,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--data", default="data/downloads.json",
                         help="collector output to enumerate (default: %(default)s)")
     parser.add_argument("--reports-dir", default="reports",
-                        help="directory holding reports/<YYYY-MM>/report.pdf")
+                        help="directory holding the report archive")
     parser.add_argument("--site-root", default=".",
                         help="root the pdf paths in the manifest are relative to")
     parser.add_argument("--out", default=None,
@@ -232,6 +248,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="print the month a run should render, and exit")
     parser.add_argument("--print-months", action="store_true",
                         help="print every month present in the data, and exit")
+    parser.add_argument("--print-pdf-path", action="store_true",
+                        help="print the canonical archive path for --month "
+                             "(or the target month), and exit")
     parser.add_argument("--max-age-days", type=int, default=None,
                         help="fail if the collector last ran more than N days "
                              "ago (guards a scheduled report against stale data)")
@@ -255,6 +274,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if args.print_target:
         print(target_month(manifest, args.month))
+        return 0
+    if args.print_pdf_path:
+        print(report_pdf_path(reports_dir, target_month(manifest, args.month)))
         return 0
 
     out.parent.mkdir(parents=True, exist_ok=True)
