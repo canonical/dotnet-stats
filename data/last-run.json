@@ -1,8 +1,8 @@
 {
-  "last_updated": "2026-09-02T06:11:50Z",
-  "row_count": 94881,
+  "last_updated": "2026-09-03T06:11:43Z",
+  "row_count": 95284,
   "binary_count": 7219,
   "rows_by_origin": {
-    "backports-ppa": 94881
+    "backports-ppa": 95284
   }
 }
