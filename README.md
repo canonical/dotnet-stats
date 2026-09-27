@@ -23,6 +23,7 @@ requirements.txt             # Python dependencies (launchpadlib)
 scripts/collect.py           # data collection (run by CI or locally)
 scripts/report_manifest.py   # indexes the archived reports (reports/index.json)
 scripts/print_report.py      # renders one month's report to PDF with headless Chrome
+scripts/signed_commit.py     # CI: commits files via the GitHub API (signed commits)
 data/                        # generated data (committed by CI)
   downloads.csv              #   flat, git-diffable table
   downloads.json             #   compact per-binary time series (used by the site)
@@ -145,9 +146,17 @@ to a shared reusable workflow (`deploy-pages.yml`, `on: workflow_call`).
   because the final day's counts aren't in yet at month end and the collector's
   incremental window only reaches back three days.
 
-Both workflows share a single concurrency group, so they can never race a `git
-push` or a Pages deploy. Enable GitHub Pages for the repository with **Source:
-GitHub Actions**.
+Both workflows share a single concurrency group, so they can never race a
+commit to `main` or a Pages deploy. Enable GitHub Pages for the repository with
+**Source: GitHub Actions**.
+
+`main` is protected and requires signed commits, so the workflows do not use
+`git commit` + `git push` (that would produce an unsigned commit). Instead
+`scripts/signed_commit.py` creates the commit through the GitHub Git Data API
+with the workflow's `GITHUB_TOKEN`; GitHub signs such commits, and the script
+refuses to move the branch unless the new commit is reported as verified. The
+pull-request requirement on `main` is bypassed for the GitHub Actions app in the
+branch protection settings (managed in `canonical-repo-automation`).
 
 ## Monthly executive report
 

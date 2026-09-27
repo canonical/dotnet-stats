@@ -29,6 +29,7 @@ requirements.txt           # Python deps (launchpadlib only; stdlib otherwise)
 scripts/collect.py         # data collector (the main backend logic)
 scripts/report_manifest.py # indexes reports/ -> reports/index.json (no report maths)
 scripts/print_report.py    # headless-Chrome renderer for one month's PDF
+scripts/signed_commit.py   # CI-only: commits files via the GitHub API (signed)
 data/                      # generated data; committed by CI, do not hand-edit
 web/                       # static dashboard (index.html, reports.html, app.js,
                            #   stats.js, report.js, style.css)
@@ -55,6 +56,8 @@ node --check web/report.js
 
 # Validate the report scripts:
 python3 -m py_compile scripts/report_manifest.py scripts/print_report.py
+python3 -m py_compile scripts/signed_commit.py
+python3 scripts/signed_commit.py --dry-run -m x data/downloads.json  # changed paths
 python3 scripts/report_manifest.py --print-target   # month a scheduled run picks
 
 # Preview the dashboard (must be served over HTTP, not file://):
@@ -99,6 +102,11 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
 - Preserve the CSV/JSON schema in `collect.py` (`CSV_FIELDS`, `BINARY_KEY_FIELDS`
   and the compact per-binary JSON shape). The dashboard depends on it — change
   both sides together if you must change the schema.
+- **CI commits must be signed.** `main` requires signed commits, so workflows
+  commit through `scripts/signed_commit.py` (GitHub Git Data API; GitHub signs
+  the commit). Do not reintroduce `git commit` + `git push` in a workflow, and do
+  not pass an author/committer to the commit API, since either produces an
+  unsigned commit that the branch protection rejects.
 
 ## Launchpad API gotchas (verified, important)
 
