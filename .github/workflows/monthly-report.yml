@@ -102,8 +102,6 @@ jobs:
           # PDF. The manifest never recomputes report figures; it only indexes.
           python scripts/report_manifest.py --data data/downloads.json
 
-      # main requires signed commits, so the commit is created through the
-      # GitHub API (which signs it) instead of `git commit` + `git push`.
       - name: Commit monthly report
         env:
           MONTH: ${{ steps.month.outputs.month }}

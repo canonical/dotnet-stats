@@ -89,8 +89,6 @@ jobs:
           echo "Running: python scripts/collect.py ${args[*]}"
           python scripts/collect.py "${args[@]}"
 
-      # main requires signed commits, so the commit is created through the
-      # GitHub API (which signs it) instead of `git commit` + `git push`.
       - name: Commit updated data
         env:
           IN_OUTPUT_DIR: ${{ github.event.inputs.output_dir }}
