@@ -148,8 +148,8 @@ def main() -> int:
 
     new_tree = gh.request("POST", "/git/trees",
                           {"base_tree": base_tree, "tree": tree})
-    # No author/committer: GitHub attributes the commit to the token's bot
-    # identity and signs it. Setting either would produce an unsigned commit.
+    # Leave out author/committer: GitHub then creates the commit as the
+    # token's bot and signs it. A custom committer can make it unsigned.
     commit = gh.request("POST", "/git/commits", {
         "message": args.message,
         "tree": new_tree["sha"],

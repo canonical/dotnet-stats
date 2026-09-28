@@ -151,10 +151,11 @@ commit to `main` or a Pages deploy. Enable GitHub Pages for the repository with
 **Source: GitHub Actions**.
 
 `main` is protected and requires signed commits, so the workflows do not use
-`git commit` + `git push` (that would produce an unsigned commit). Instead
-`scripts/signed_commit.py` creates the commit through the GitHub Git Data API
-with the workflow's `GITHUB_TOKEN`; GitHub signs such commits, and the script
-refuses to move the branch unless the new commit is reported as verified. The
+`git commit` + `git push` (the runner has no signing key, so the pushed commit
+would be unsigned). Instead `scripts/signed_commit.py` creates the commit
+through the GitHub Git Data API with the workflow's `GITHUB_TOKEN`; GitHub signs
+such commits, and the script refuses to move the branch unless the new commit is
+reported as verified. The
 pull-request requirement on `main` is bypassed for the GitHub Actions app in the
 branch protection settings (managed in `canonical-repo-automation`).
 

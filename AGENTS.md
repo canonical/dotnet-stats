@@ -104,9 +104,10 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
   both sides together if you must change the schema.
 - **CI commits must be signed.** `main` requires signed commits, so workflows
   commit through `scripts/signed_commit.py` (GitHub Git Data API; GitHub signs
-  the commit). Do not reintroduce `git commit` + `git push` in a workflow, and do
-  not pass an author/committer to the commit API, since either produces an
-  unsigned commit that the branch protection rejects.
+  the commit). Do not reintroduce `git commit` + `git push` in a workflow: the
+  runner has no signing key, so the pushed commit is unsigned and rejected. Do
+  not pass an author/committer to the commit API either; GitHub only signs the
+  commits it creates as the token's bot, and a custom committer loses that.
 
 ## Launchpad API gotchas (verified, important)
 
@@ -177,6 +178,11 @@ python3 -c "import yaml; yaml.safe_load(open('.github/workflows/collect-data.yml
 There is no unit-test suite. When changing the collector, verify with a live
 windowed run and, for parallelism changes, confirm `--workers 1` and
 `--workers 8` produce **identical** output over the same window.
+
+When changing `signed_commit.py`, `--dry-run` only checks which paths it detects
+as changed; the API calls can only be exercised in CI. Trigger "Collect data &
+deploy" via `workflow_dispatch` with a narrow `start`/`end` window and confirm
+the resulting commit on `main` shows as "Verified".
 
 When changing the report maths, reconcile against an independent implementation
 rather than eyeballing: compute a month's total, per-version/series/architecture
