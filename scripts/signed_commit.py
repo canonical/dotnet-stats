@@ -36,7 +36,6 @@ import json
 import os
 import subprocess
 import sys
-import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -44,7 +43,6 @@ from pathlib import Path
 API_URL = os.environ.get("GITHUB_API_URL", "https://api.github.com")
 # Blob uploads of the larger data files can take a while.
 TIMEOUT_SECONDS = 300
-RETRIES = 3
 
 
 def git(*args: str) -> str:
@@ -69,40 +67,23 @@ class GitHub:
         self.token = token
 
     def request(self, method: str, path: str, body: dict) -> dict:
-        data = json.dumps(body).encode()
-        for attempt in range(1, RETRIES + 1):
-            req = urllib.request.Request(
-                self.base + path,
-                data=data,
-                method=method,
-                headers={
-                    "Authorization": f"Bearer {self.token}",
-                    "Accept": "application/vnd.github+json",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                    "Content-Type": "application/json",
-                },
-            )
-            try:
-                with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
-                    return json.load(resp)
-            except urllib.error.HTTPError as err:
-                detail = err.read().decode(errors="replace")
-                # Only server-side errors are worth retrying; 4xx (including a
-                # protection rejection or a non-fast-forward) will not change.
-                if err.code >= 500 and attempt < RETRIES:
-                    print(f"{method} {path}: HTTP {err.code}, retrying",
-                          file=sys.stderr)
-                    time.sleep(5 * attempt)
-                    continue
-                sys.exit(f"error: {method} {path} failed: HTTP {err.code}\n{detail}")
-            except urllib.error.URLError as err:
-                if attempt < RETRIES:
-                    print(f"{method} {path}: {err.reason}, retrying",
-                          file=sys.stderr)
-                    time.sleep(5 * attempt)
-                    continue
-                sys.exit(f"error: {method} {path} failed: {err.reason}")
-        raise AssertionError("unreachable")
+        req = urllib.request.Request(
+            self.base + path,
+            data=json.dumps(body).encode(),
+            method=method,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT_SECONDS) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as err:
+            detail = err.read().decode(errors="replace")
+            sys.exit(f"error: {method} {path} failed: HTTP {err.code}\n{detail}")
 
 
 def main() -> int:
