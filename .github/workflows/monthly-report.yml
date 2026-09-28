@@ -106,17 +106,12 @@ jobs:
         env:
           MONTH: ${{ steps.month.outputs.month }}
           PDF_PATH: ${{ steps.render.outputs.pdf_path }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$PDF_PATH" reports/index.json
-          if git diff --staged --quiet; then
-            echo "No report changes to commit."
-          else
-            git commit -m "chore(report): executive report for $MONTH [skip ci]"
-            git push
-          fi
+          python scripts/signed_commit.py \
+            -m "chore(report): executive report for $MONTH [skip ci]" \
+            "$PDF_PATH" reports/index.json
 
   deploy:
     needs: report

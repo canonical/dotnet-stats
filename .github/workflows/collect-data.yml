@@ -92,17 +92,13 @@ jobs:
       - name: Commit updated data
         env:
           IN_OUTPUT_DIR: ${{ github.event.inputs.output_dir }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           data_dir="${IN_OUTPUT_DIR:-data}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add "$data_dir/downloads.csv" "$data_dir/downloads.json" "$data_dir/last-run.json"
-          if git diff --staged --quiet; then
-            echo "No data changes to commit."
-          else
-            git commit -m "chore(data): daily download counts [skip ci]"
-            git push
-          fi
+          python scripts/signed_commit.py \
+            -m "chore(data): daily download counts [skip ci]" \
+            "$data_dir/downloads.csv" "$data_dir/downloads.json" "$data_dir/last-run.json"
 
   deploy:
     needs: collect
