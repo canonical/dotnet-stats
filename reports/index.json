@@ -1,23 +1,37 @@
 {
-  "generated_at": "2026-09-08T15:12:30Z",
-  "last_updated": "2026-09-08T06:10:41Z",
+  "generated_at": "2026-10-02T07:24:50Z",
+  "last_updated": "2026-10-02T06:04:28Z",
   "data_window": {
     "first": "2024-04-26",
-    "last": "2026-09-08"
+    "last": "2026-10-02"
   },
-  "latest_complete_month": "2026-08",
+  "latest_complete_month": "2026-09",
   "reports": [
+    {
+      "month": "2026-10",
+      "label": "October 2026",
+      "total": 9511,
+      "status": "partial",
+      "coverage_pct": 100.0,
+      "days_with_data": 2,
+      "days_expected": 2,
+      "complete": false,
+      "html": "index.html?month=2026-10",
+      "pdf": null
+    },
     {
       "month": "2026-09",
       "label": "September 2026",
-      "total": 59176,
-      "status": "partial",
+      "total": 277965,
+      "status": "ok",
       "coverage_pct": 100.0,
-      "days_with_data": 8,
-      "days_expected": 8,
-      "complete": false,
+      "days_with_data": 30,
+      "days_expected": 30,
+      "complete": true,
       "html": "index.html?month=2026-09",
-      "pdf": null
+      "pdf": "reports/2026/September.pdf",
+      "pdf_bytes": 198774,
+      "pdf_generated": "2026-10-02T07:24:49Z"
     },
     {
       "month": "2026-08",
@@ -31,7 +45,7 @@
       "html": "index.html?month=2026-08",
       "pdf": "reports/2026/August.pdf",
       "pdf_bytes": 198774,
-      "pdf_generated": "2026-09-08T15:12:30Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-07",
@@ -45,7 +59,7 @@
       "html": "index.html?month=2026-07",
       "pdf": "reports/2026/July.pdf",
       "pdf_bytes": 376651,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-06",
@@ -59,7 +73,7 @@
       "html": "index.html?month=2026-06",
       "pdf": "reports/2026/June.pdf",
       "pdf_bytes": 172970,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-05",
@@ -73,7 +87,7 @@
       "html": "index.html?month=2026-05",
       "pdf": "reports/2026/May.pdf",
       "pdf_bytes": 374582,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-04",
@@ -87,7 +101,7 @@
       "html": "index.html?month=2026-04",
       "pdf": "reports/2026/April.pdf",
       "pdf_bytes": 381682,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-03",
@@ -101,7 +115,7 @@
       "html": "index.html?month=2026-03",
       "pdf": "reports/2026/March.pdf",
       "pdf_bytes": 383964,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-02",
@@ -115,7 +129,7 @@
       "html": "index.html?month=2026-02",
       "pdf": "reports/2026/February.pdf",
       "pdf_bytes": 384268,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2026-01",
@@ -129,7 +143,7 @@
       "html": "index.html?month=2026-01",
       "pdf": "reports/2026/January.pdf",
       "pdf_bytes": 379881,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-12",
@@ -143,7 +157,7 @@
       "html": "index.html?month=2025-12",
       "pdf": "reports/2025/December.pdf",
       "pdf_bytes": 375561,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-11",
@@ -157,7 +171,7 @@
       "html": "index.html?month=2025-11",
       "pdf": "reports/2025/November.pdf",
       "pdf_bytes": 378671,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-10",
@@ -171,7 +185,7 @@
       "html": "index.html?month=2025-10",
       "pdf": "reports/2025/October.pdf",
       "pdf_bytes": 375650,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-09",
@@ -185,7 +199,7 @@
       "html": "index.html?month=2025-09",
       "pdf": "reports/2025/September.pdf",
       "pdf_bytes": 371151,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-08",
@@ -199,7 +213,7 @@
       "html": "index.html?month=2025-08",
       "pdf": "reports/2025/August.pdf",
       "pdf_bytes": 368605,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-07",
@@ -213,7 +227,7 @@
       "html": "index.html?month=2025-07",
       "pdf": "reports/2025/July.pdf",
       "pdf_bytes": 372481,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-06",
@@ -227,7 +241,7 @@
       "html": "index.html?month=2025-06",
       "pdf": "reports/2025/June.pdf",
       "pdf_bytes": 366185,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-05",
@@ -241,7 +255,7 @@
       "html": "index.html?month=2025-05",
       "pdf": "reports/2025/May.pdf",
       "pdf_bytes": 372730,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-04",
@@ -255,7 +269,7 @@
       "html": "index.html?month=2025-04",
       "pdf": "reports/2025/April.pdf",
       "pdf_bytes": 364299,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-03",
@@ -269,7 +283,7 @@
       "html": "index.html?month=2025-03",
       "pdf": "reports/2025/March.pdf",
       "pdf_bytes": 368486,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-02",
@@ -283,7 +297,7 @@
       "html": "index.html?month=2025-02",
       "pdf": "reports/2025/February.pdf",
       "pdf_bytes": 364397,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2025-01",
@@ -297,7 +311,7 @@
       "html": "index.html?month=2025-01",
       "pdf": "reports/2025/January.pdf",
       "pdf_bytes": 363301,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-12",
@@ -311,7 +325,7 @@
       "html": "index.html?month=2024-12",
       "pdf": "reports/2024/December.pdf",
       "pdf_bytes": 361751,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-11",
@@ -325,7 +339,7 @@
       "html": "index.html?month=2024-11",
       "pdf": "reports/2024/November.pdf",
       "pdf_bytes": 365198,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-10",
@@ -339,7 +353,7 @@
       "html": "index.html?month=2024-10",
       "pdf": "reports/2024/October.pdf",
       "pdf_bytes": 357164,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-09",
@@ -353,7 +367,7 @@
       "html": "index.html?month=2024-09",
       "pdf": "reports/2024/September.pdf",
       "pdf_bytes": 357596,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-08",
@@ -367,7 +381,7 @@
       "html": "index.html?month=2024-08",
       "pdf": "reports/2024/August.pdf",
       "pdf_bytes": 349076,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-07",
@@ -381,7 +395,7 @@
       "html": "index.html?month=2024-07",
       "pdf": "reports/2024/July.pdf",
       "pdf_bytes": 350564,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-06",
@@ -395,7 +409,7 @@
       "html": "index.html?month=2024-06",
       "pdf": "reports/2024/June.pdf",
       "pdf_bytes": 345185,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-05",
@@ -409,7 +423,7 @@
       "html": "index.html?month=2024-05",
       "pdf": "reports/2024/May.pdf",
       "pdf_bytes": 343037,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     },
     {
       "month": "2024-04",
@@ -423,7 +437,7 @@
       "html": "index.html?month=2024-04",
       "pdf": "reports/2024/April.pdf",
       "pdf_bytes": 312799,
-      "pdf_generated": "2026-09-08T15:12:16Z"
+      "pdf_generated": "2026-10-02T07:24:44Z"
     }
   ]
 }
