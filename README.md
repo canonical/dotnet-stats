@@ -52,7 +52,7 @@ Edit `config.json` to change what is tracked:
 {
   "team": "dotnet",
   "ppa": "backports",
-  "source_packages": ["dotnet6", "dotnet7", "dotnet8", "dotnet9", "dotnet10"]
+  "source_packages": ["dotnet6", "dotnet7", "dotnet8", "dotnet9", "dotnet10", "dotnet11"]
 }
 ```
 
@@ -241,7 +241,7 @@ of being published half-empty.
 - **Time series** — daily downloads with 7/30-day moving averages and cumulative.
 - **Calendar** — GitHub-style heatmap of daily download intensity with a year/month selector, surfacing weekday/seasonal patterns and the busiest day of the week.
 - **Trends** — week-over-week / month-over-month growth and regression slope.
-- **Version share** — stacked share of dotnet6/7/8/9/10 over time.
+- **Version share** — stacked share of dotnet6/7/8/9/10/11 over time.
 - **Breakdowns** — by origin, series, architecture, package type and pocket.
 - **Peaks & anomalies** — top peak days and statistical outliers (> mean + 2σ).
 - **Lifecycle** — adoption/decline curves and half-life estimates.
