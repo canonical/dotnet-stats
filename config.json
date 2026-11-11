@@ -6,6 +6,7 @@
     "dotnet7",
     "dotnet8",
     "dotnet9",
-    "dotnet10"
+    "dotnet10",
+    "dotnet11"
   ]
 }
